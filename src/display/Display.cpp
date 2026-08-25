@@ -1,4 +1,5 @@
 #include "Display.h"
+#include "GraphPlotter.h"
 
 #include <Arduino.h>
 #include <SPI.h>
@@ -16,6 +17,7 @@ namespace
     constexpr uint32_t UPDATE_INTERVAL_MS = 1000;
 
     Adafruit_ST7789 display(&SPI, TFT_CS, TFT_DC, -1);
+    GraphPlotter graph;
 
     float currentPM1 = 0;
     float currentPM25 = 0;
@@ -32,26 +34,39 @@ void DisplayController::begin()
     display.init(240, 320);
     display.setRotation(3);
     display.fillScreen(ST77XX_BLACK);
+
+    // Title Header
     display.setTextColor(ST77XX_WHITE);
     display.setTextSize(2);
-    display.setCursor(20, 30);
+    display.setCursor(10, 6);
     display.println("Air Quality Monitor");
 
-    // Draw static labels (never redrawn)
-    display.setCursor(20, 70);
+    // Static Value Labels (Color-coded to match graph curves)
+    display.setTextSize(2);
+
+    display.setTextColor(ST77XX_CYAN);
+    display.setCursor(10, 28);
     display.print("PM1.0:");
-    display.setCursor(220, 70);
+    display.setTextColor(ST77XX_WHITE);
+    display.setCursor(185, 28);
     display.print("ug/m3");
 
-    display.setCursor(20, 110);
+    display.setTextColor(ST77XX_YELLOW);
+    display.setCursor(10, 48);
     display.print("PM2.5:");
-    display.setCursor(220, 110);
+    display.setTextColor(ST77XX_WHITE);
+    display.setCursor(185, 48);
     display.print("ug/m3");
 
-    display.setCursor(20, 150);
-    display.print("PM10:");
-    display.setCursor(220, 150);
+    display.setTextColor(ST77XX_MAGENTA);
+    display.setCursor(10, 68);
+    display.print("PM10 :");
+    display.setTextColor(ST77XX_WHITE);
+    display.setCursor(185, 68);
     display.print("ug/m3");
+
+    // Initialize graph frame, scale, and grid
+    graph.init(display);
 
     lastUpdateMs = millis();
     Serial.println("Display initialized.");
@@ -71,20 +86,26 @@ void DisplayController::update()
         return;
     }
 
-    // Clear and redraw all values
-    display.fillRect(100, 70, 115, 20, ST77XX_BLACK);
-    display.fillRect(100, 110, 115, 20, ST77XX_BLACK);
-    display.fillRect(100, 150, 115, 20, ST77XX_BLACK);
+    // Clear previous numbers and redraw top values
+    display.fillRect(90, 28, 90, 16, ST77XX_BLACK);
+    display.fillRect(90, 48, 90, 16, ST77XX_BLACK);
+    display.fillRect(90, 68, 90, 16, ST77XX_BLACK);
 
     display.setTextSize(2);
-    display.setCursor(100, 70);
+    display.setTextColor(ST77XX_WHITE);
+
+    display.setCursor(90, 28);
     display.print(currentPM1, 1);
 
-    display.setCursor(100, 110);
+    display.setCursor(90, 48);
     display.print(currentPM25, 1);
 
-    display.setCursor(100, 150);
+    display.setCursor(90, 68);
     display.print(currentPM10, 1);
+
+    // Update history and redraw graph
+    graph.addSample(currentPM1, currentPM25, currentPM10);
+    graph.draw(display);
 }
 
 void DisplayController::showPM(float pm1Concentration, float pm25Concentration, float pm10Concentration)
