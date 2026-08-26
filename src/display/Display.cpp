@@ -22,7 +22,7 @@ namespace
     float currentPM1 = 0;
     float currentPM25 = 0;
     float currentPM10 = 0;
-    bool dataReady = false;
+    bool needsRedraw = false;
 }
 
 void DisplayController::begin()
@@ -74,17 +74,11 @@ void DisplayController::begin()
 
 void DisplayController::update()
 {
-    uint32_t now = millis();
-    if (now - lastUpdateMs < UPDATE_INTERVAL_MS)
+    if (!needsRedraw)
     {
         return;
     }
-    lastUpdateMs = now;
-
-    if (!dataReady)
-    {
-        return;
-    }
+    needsRedraw = false;
 
     // Clear previous numbers and redraw top values
     display.fillRect(90, 28, 90, 16, ST77XX_BLACK);
@@ -103,8 +97,7 @@ void DisplayController::update()
     display.setCursor(90, 68);
     display.print(currentPM10, 1);
 
-    // Update history and redraw graph
-    graph.addSample(currentPM1, currentPM25, currentPM10);
+    // Redraw graph with latest history
     graph.draw(display);
 }
 
@@ -113,5 +106,8 @@ void DisplayController::showPM(float pm1Concentration, float pm25Concentration, 
     currentPM1 = pm1Concentration;
     currentPM25 = pm25Concentration;
     currentPM10 = pm10Concentration;
-    dataReady = true;
+
+    // Add exactly one sample per valid measurement
+    graph.addSample(currentPM1, currentPM25, currentPM10);
+    needsRedraw = true;
 }
