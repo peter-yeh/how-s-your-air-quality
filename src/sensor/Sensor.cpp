@@ -108,10 +108,10 @@ bool SensorController::begin()
     }
     Serial.println("BMV080: Sensor initialized.");
 
-    // These features improve stability and make a blocked optical path visible.
-    if (!bmv->setObstructionDetection(true))
+    // Obstruction reporting is disabled; readings are still used by the graph.
+    if (!bmv->setObstructionDetection(false))
     {
-        Serial.println("WARNING: BMV080 obstruction detection could not be enabled.");
+        Serial.println("WARNING: BMV080 obstruction detection could not be disabled.");
     }
     if (!bmv->setDoVibrationFiltering(true))
     {
@@ -151,20 +151,5 @@ bool SensorController::read(float &pm1, float &pm25, float &pm10)
         return false;
     }
 
-    static bool previousObstructed = false;
-    obstructed = bmv->ifObstructed();
-    if (obstructed != previousObstructed)
-    {
-        Serial.println(obstructed
-                           ? "WARNING: BMV080 reports an obstructed optical path."
-                           : "BMV080 optical path is clear.");
-        previousObstructed = obstructed;
-    }
-
     return true;
-}
-
-bool SensorController::isObstructed() const
-{
-    return obstructed;
 }

@@ -34,7 +34,6 @@ void airQualityTask(void *pvParameters)
                     (int)(pm10 + 0.5f));
 
       display.showPM(pm1, pm25, pm10);
-      display.showSensorStatus(sensor.isObstructed());
     }
 
     display.update();
@@ -67,8 +66,7 @@ void setup()
       NULL,
       1,
       NULL,
-      1
-  );
+      1);
 }
 
 void loop()
