@@ -130,7 +130,7 @@ bool SensorController::begin()
         Serial.println(modeResult);
         return false;
     }
-    Serial.println("BMV080: Continuous mode started (FAST_RESPONSE).");
+    Serial.println("BMV080: Continuous mode started (BALANCED).");
 
     initialized = true;
     return true;

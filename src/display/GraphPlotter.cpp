@@ -1,6 +1,7 @@
 #include "GraphPlotter.h"
 #include <Arduino.h>
 #include <Adafruit_ST7789.h>
+#include <math.h>
 
 namespace
 {
@@ -12,14 +13,14 @@ namespace
 }
 
 GraphPlotter::GraphPlotter(int16_t x, int16_t y, int16_t w, int16_t h, float maxVal)
-    : originX(x), originY(y), width(w), height(h), stepX(w / (MAX_HISTORY - 1)), maxScale(maxVal), historyCount(0)
+    : originX(x), originY(y), width(w), height(h), stepX(w / (MAX_HISTORY - 1)), minScale(0), maxScale(maxVal), historyCount(0)
 {
 }
 
 int16_t GraphPlotter::mapY(float val) const
 {
-    float clamped = constrain(val, 0.0f, maxScale);
-    return (originY + height) - (int16_t)((clamped / maxScale) * height);
+    float clamped = constrain(val, minScale, maxScale);
+    return (originY + height) - (int16_t)(((clamped - minScale) / (maxScale - minScale)) * height);
 }
 
 void GraphPlotter::drawGrid(Adafruit_GFX &display)
@@ -40,14 +41,7 @@ void GraphPlotter::init(Adafruit_GFX &display)
     // Graph Frame & Scale Labels
     display.drawRect(originX, originY, width + 1, height + 1, COLOR_BORDER);
 
-    display.setTextSize(1);
-    display.setTextColor(COLOR_BORDER);
-    display.setCursor(12, originY - 3);
-    display.print((int)maxScale);
-    display.setCursor(18, originY + (height / 2) - 3);
-    display.print((int)(maxScale / 2));
-    display.setCursor(24, originY + height - 4);
-    display.print("0");
+    drawScaleLabels(display);
 
     display.setCursor(originX, originY + height + 4);
     display.print("-30s");
@@ -55,6 +49,40 @@ void GraphPlotter::init(Adafruit_GFX &display)
     display.print("now");
 
     drawGrid(display);
+}
+
+void GraphPlotter::updateScale()
+{
+    float smallest = historyPM1[0];
+    float largest = historyPM1[0];
+
+    for (uint8_t i = 0; i < historyCount; ++i)
+    {
+        smallest = min(smallest, min(historyPM1[i], min(historyPM25[i], historyPM10[i])));
+        largest = max(largest, max(historyPM1[i], max(historyPM25[i], historyPM10[i])));
+    }
+
+    float padding = max((largest - smallest) * 0.1f, 1.0f);
+    minScale = floorf(max(0.0f, smallest - padding));
+    maxScale = ceilf(largest + padding);
+
+    if (maxScale <= minScale)
+    {
+        maxScale = minScale + 2.0f;
+    }
+}
+
+void GraphPlotter::drawScaleLabels(Adafruit_GFX &display)
+{
+    display.fillRect(0, originY - 6, originX - 1, height + 12, ST77XX_BLACK);
+    display.setTextSize(1);
+    display.setTextColor(COLOR_BORDER);
+    display.setCursor(2, originY - 3);
+    display.print((int)maxScale);
+    display.setCursor(2, originY + (height / 2) - 3);
+    display.print((int)((minScale + maxScale) / 2.0f));
+    display.setCursor(2, originY + height - 4);
+    display.print((int)minScale);
 }
 
 void GraphPlotter::addSample(float pm1, float pm25, float pm10)
@@ -93,6 +121,9 @@ void GraphPlotter::draw(Adafruit_GFX &display)
     {
         return;
     }
+
+    updateScale();
+    drawScaleLabels(display);
 
     if (historyCount == 1)
     {

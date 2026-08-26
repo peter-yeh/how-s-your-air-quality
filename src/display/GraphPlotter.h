@@ -18,12 +18,15 @@ public:
 private:
     int16_t mapY(float val) const;
     void drawGrid(Adafruit_GFX &display);
+    void updateScale();
+    void drawScaleLabels(Adafruit_GFX &display);
 
     int16_t originX;
     int16_t originY;
     int16_t width;
     int16_t height;
     int16_t stepX;
+    float minScale;
     float maxScale;
 
     float historyPM1[MAX_HISTORY];
