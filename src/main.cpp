@@ -1,3 +1,6 @@
+// Board: Espressif ESP32 Dev Module (PlatformIO board: esp32dev)
+// Physical board noted in this project: Sunton 3.2-inch ESP32 LCD board
+
 #include <Arduino.h>
 #include "display/Display.h"
 #include "storage/Storage.h"
@@ -31,6 +34,7 @@ void airQualityTask(void *pvParameters)
                     (int)(pm10 + 0.5f));
 
       display.showPM(pm1, pm25, pm10);
+      display.showSensorStatus(sensor.isObstructed());
     }
 
     display.update();

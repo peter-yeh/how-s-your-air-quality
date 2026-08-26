@@ -1,3 +1,6 @@
+// Sensor: Bosch BMV080 particulate matter sensor
+// Interface: I2C through the DFRobot BMV080 driver
+
 #include "Sensor.h"
 
 SensorController::~SensorController()
@@ -149,7 +152,7 @@ bool SensorController::read(float &pm1, float &pm25, float &pm10)
     }
 
     static bool previousObstructed = false;
-    bool obstructed = bmv->ifObstructed();
+    obstructed = bmv->ifObstructed();
     if (obstructed != previousObstructed)
     {
         Serial.println(obstructed
@@ -159,4 +162,9 @@ bool SensorController::read(float &pm1, float &pm25, float &pm10)
     }
 
     return true;
+}
+
+bool SensorController::isObstructed() const
+{
+    return obstructed;
 }

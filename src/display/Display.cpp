@@ -23,6 +23,8 @@ namespace
     float currentPM25 = 0;
     float currentPM10 = 0;
     bool needsRedraw = false;
+    bool sensorObstructed = false;
+    bool sensorStatusAvailable = false;
 }
 
 void DisplayController::begin()
@@ -97,6 +99,15 @@ void DisplayController::update()
     display.setCursor(90, 68);
     display.print(currentPM10, 1);
 
+    display.fillRect(252, 0, 68, 20, ST77XX_BLACK);
+    if (sensorStatusAvailable)
+    {
+        display.setTextSize(1);
+        display.setTextColor(sensorObstructed ? ST77XX_RED : ST77XX_GREEN);
+        display.setCursor(255, 6);
+        display.print(sensorObstructed ? "LOADING" : "LIVE");
+    }
+
     // Redraw graph with latest history
     graph.draw(display);
 }
@@ -109,5 +120,12 @@ void DisplayController::showPM(float pm1Concentration, float pm25Concentration, 
 
     // Add exactly one sample per valid measurement
     graph.addSample(currentPM1, currentPM25, currentPM10);
+    needsRedraw = true;
+}
+
+void DisplayController::showSensorStatus(bool obstructed)
+{
+    sensorObstructed = obstructed;
+    sensorStatusAvailable = true;
     needsRedraw = true;
 }
