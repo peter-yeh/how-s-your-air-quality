@@ -15,7 +15,7 @@ namespace
     constexpr uint8_t TFT_MISO = 12;
     constexpr uint8_t TFT_BL = 27;
     constexpr int16_t BASE_GRAPH_X = 36;
-    constexpr int16_t BASE_GRAPH_Y = 84;
+    constexpr int16_t BASE_GRAPH_Y = 96;
     constexpr uint8_t NORMAL_FONT_SIZE = 2;
     constexpr uint8_t SMALL_FONT_SIZE = 1;
 
@@ -98,24 +98,24 @@ void DisplayController::begin()
     display.setTextSize(NORMAL_FONT_SIZE);
 
     display.setTextColor(ST77XX_CYAN);
-    display.setCursor(BASE_GRAPH_X, 36);
+    display.setCursor(BASE_GRAPH_X, 39);
     display.print("PM1.0:");
     display.setTextColor(ST77XX_WHITE);
-    display.setCursor(161, 36);
+    display.setCursor(161, 39);
     display.print("ug/m3");
 
     display.setTextColor(ST77XX_YELLOW);
-    display.setCursor(BASE_GRAPH_X, 50);
+    display.setCursor(BASE_GRAPH_X, 58);
     display.print("PM2.5:");
     display.setTextColor(ST77XX_WHITE);
-    display.setCursor(161, 50);
+    display.setCursor(161, 58);
     display.print("ug/m3");
 
     display.setTextColor(ST77XX_MAGENTA);
-    display.setCursor(BASE_GRAPH_X, 64);
+    display.setCursor(BASE_GRAPH_X, 77);
     display.print("PM10:");
     display.setTextColor(ST77XX_WHITE);
-    display.setCursor(161, 64);
+    display.setCursor(161, 77);
     display.print("ug/m3");
 
     // Initialize graph frame, scale, and grid
@@ -135,20 +135,20 @@ void DisplayController::update()
     needsRedraw = false;
 
     // Clear previous numbers and redraw top values
-    display.fillRect(116 + screenShiftX, 36 + screenShiftY, 45, 16, ST77XX_BLACK);
-    display.fillRect(116 + screenShiftX, 50 + screenShiftY, 45, 16, ST77XX_BLACK);
-    display.fillRect(116 + screenShiftX, 64 + screenShiftY, 45, 16, ST77XX_BLACK);
+    display.fillRect(116 + screenShiftX, 39 + screenShiftY, 45, 16, ST77XX_BLACK);
+    display.fillRect(116 + screenShiftX, 58 + screenShiftY, 45, 16, ST77XX_BLACK);
+    display.fillRect(116 + screenShiftX, 77 + screenShiftY, 45, 16, ST77XX_BLACK);
 
     display.setTextSize(NORMAL_FONT_SIZE);
     display.setTextColor(ST77XX_WHITE);
 
-    display.setCursor(116 + screenShiftX, 36 + screenShiftY);
+    display.setCursor(116 + screenShiftX, 39 + screenShiftY);
     display.print((int)(currentPM1 + 0.5f));
 
-    display.setCursor(116 + screenShiftX, 50 + screenShiftY);
+    display.setCursor(116 + screenShiftX, 58 + screenShiftY);
     display.print((int)(currentPM25 + 0.5f));
 
-    display.setCursor(116 + screenShiftX, 64 + screenShiftY);
+    display.setCursor(116 + screenShiftX, 77 + screenShiftY);
     display.print((int)(currentPM10 + 0.5f));
 
     // Redraw graph with latest history
@@ -193,24 +193,24 @@ void DisplayController::shiftScreen(int16_t x, int16_t y)
 
     display.setTextSize(NORMAL_FONT_SIZE);
     display.setTextColor(ST77XX_CYAN);
-    display.setCursor(BASE_GRAPH_X + screenShiftX, 36 + screenShiftY);
+    display.setCursor(BASE_GRAPH_X + screenShiftX, 39 + screenShiftY);
     display.print("PM1.0:");
     display.setTextColor(ST77XX_WHITE);
-    display.setCursor(161 + screenShiftX, 36 + screenShiftY);
+    display.setCursor(161 + screenShiftX, 39 + screenShiftY);
     display.print("ug/m3");
 
     display.setTextColor(ST77XX_YELLOW);
-    display.setCursor(BASE_GRAPH_X + screenShiftX, 50 + screenShiftY);
+    display.setCursor(BASE_GRAPH_X + screenShiftX, 58 + screenShiftY);
     display.print("PM2.5:");
     display.setTextColor(ST77XX_WHITE);
-    display.setCursor(161 + screenShiftX, 50 + screenShiftY);
+    display.setCursor(161 + screenShiftX, 58 + screenShiftY);
     display.print("ug/m3");
 
     display.setTextColor(ST77XX_MAGENTA);
-    display.setCursor(BASE_GRAPH_X + screenShiftX, 64 + screenShiftY);
+    display.setCursor(BASE_GRAPH_X + screenShiftX, 77 + screenShiftY);
     display.print("PM10:");
     display.setTextColor(ST77XX_WHITE);
-    display.setCursor(161 + screenShiftX, 64 + screenShiftY);
+    display.setCursor(161 + screenShiftX, 77 + screenShiftY);
     display.print("ug/m3");
 
     graph.setPosition(BASE_GRAPH_X + screenShiftX, BASE_GRAPH_Y + screenShiftY);

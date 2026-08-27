@@ -6,24 +6,33 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>AirQuality ESP32</title>
     <style>
+        :root { color-scheme: dark; }
         body {
             font: 16px system-ui, sans-serif;
             max-width: 900px;
             margin: 2rem auto;
             padding: 0 1rem;
-            color: #17324d;
+            color: #d7fff4;
+            background: #000;
         }
 
-        button,
-        select {
+        button, select {
             font: inherit;
             padding: .55rem .8rem;
             margin: .25rem .25rem .25rem 0;
+            color: #d7fff4;
+            background: #071512;
+            border: 1px solid #29d9ad;
+            border-radius: 3px;
         }
+
+        button:disabled, select:disabled { color: #54736c; border-color: #29463f; }
+        button:not(:disabled):hover { background: #10382d; }
 
         #status {
             padding: .7rem;
-            background: #e8f2f7;
+            background: #071512;
+            border-left: 3px solid #29d9ad;
             margin: 1rem 0;
         }
 
@@ -37,13 +46,14 @@
         canvas {
             width: 100%;
             height: 360px;
-            border: 1px solid #aac0ca;
+            border: 1px solid #1c6654;
             margin-top: 1rem;
         }
 
         pre {
             white-space: pre-wrap;
-            background: #f1f5f6;
+            background: #071512;
+            border: 1px solid #123d33;
             padding: .75rem;
             max-height: 260px;
             overflow: auto;
@@ -68,25 +78,35 @@
         const serviceUuid = '4fa8691a-1360-4c27-ba5c-057245417c92';
         const dataUuid = '4fa8691b-1360-4c27-ba5c-057245417c92';
         const commandUuid = '4fa8691c-1360-4c27-ba5c-057245417c92';
-        let dataCharacteristic, commandCharacteristic, transfer = '';
+        let dataCharacteristic, commandCharacteristic, transfer = '', transferType = '';
         const $ = id => document.getElementById(id);
+        function setStatus(message) { $('status').textContent = message; }
         function handleData(event) {
             const chunk = new TextDecoder().decode(event.target.value);
-            if (chunk.startsWith('{')) {
+            if (!transferType && chunk.startsWith('{')) {
                 try { const value = JSON.parse(chunk); $('pm1').textContent = value.pm1; $('pm25').textContent = value.pm25; $('pm10').textContent = value.pm10; } catch (_) { }
                 return;
             }
+            if (!transferType && chunk.includes('BEGIN LIST\n')) transferType = 'list';
+            if (!transferType && chunk.includes('BEGIN CSV\n')) transferType = 'csv';
             transfer += chunk;
-            if (transfer.includes('END LIST\n')) {
-                const body = transfer.split('BEGIN LIST\n')[1].split('END LIST\n')[0].trim();
-                const files = body ? body.split('\n').filter(Boolean) : [];
+            if (transferType === 'list' && transfer.includes('END LIST\n')) {
+                const body = transfer.split('BEGIN LIST\n')[1].split('END LIST\n')[0];
+                const files = body.split(/\r?\n/).map(file => file.trim()).filter(file => file.startsWith('/') && file.toLowerCase().endsWith('.csv'));
                 $('file').innerHTML = files.length ? files.map(file => `<option>${file}</option>`).join('') : '<option>No CSV files found</option>';
                 $('file').disabled = !files.length; $('load').disabled = !files.length; transfer = '';
-            } else if (transfer.includes('END CSV\n')) {
+                transferType = '';
+                setStatus(files.length ? `${files.length} CSV file(s) found` : 'No CSV files found on the SD card');
+            } else if (transferType === 'csv' && transfer.includes('END CSV\n')) {
                 const csv = transfer.split('BEGIN CSV\n')[1].split('END CSV\n')[0]; $('csv').textContent = csv; drawGraph(csv); transfer = '';
+                transferType = '';
+                setStatus(csv.startsWith('ERROR FILE') ? 'Could not open that CSV file' : 'CSV loaded');
             }
         }
-        async function write(command) { await commandCharacteristic.writeValue(new TextEncoder().encode(command)); }
+        async function write(command) {
+            try { await commandCharacteristic.writeValue(new TextEncoder().encode(command)); }
+            catch (error) { transfer = ''; transferType = ''; setStatus(`Command failed: ${error.message}`); }
+        }
         $('connect').onclick = async () => {
             try {
                 if (!navigator.bluetooth) throw new Error('Web Bluetooth is unavailable. Use Chrome or Edge over HTTPS.');
@@ -94,11 +114,11 @@
                 const server = await device.gatt.connect(); const service = await server.getPrimaryService(serviceUuid);
                 dataCharacteristic = await service.getCharacteristic(dataUuid); commandCharacteristic = await service.getCharacteristic(commandUuid);
                 await dataCharacteristic.startNotifications(); dataCharacteristic.addEventListener('characteristicvaluechanged', handleData);
-                $('files').disabled = false; $('status').textContent = `Connected to ${device.name || 'ESP32'}`;
-            } catch (error) { $('status').textContent = error.message; }
+                $('files').disabled = false; setStatus(`Connected to ${device.name || 'ESP32'}`);
+            } catch (error) { setStatus(error.message); }
         };
-        $('files').onclick = () => { transfer = ''; write('LIST'); };
-        $('load').onclick = () => { transfer = ''; write('GET:' + $('file').value); };
+        $('files').onclick = () => { transfer = ''; transferType = 'list'; setStatus('Reading CSV file list...'); write('LIST'); };
+        $('load').onclick = () => { transfer = ''; transferType = 'csv'; setStatus('Loading CSV...'); write('GET:' + $('file').value); };
         function drawGraph(csv) {
             const rows = csv.trim().split(/\r?\n/).map(row => row.split(','));
             const points = rows.map(row => ({ time: row[0], pm1: +row[1], pm25: +row[2], pm10: +row[3] })).filter(row => Number.isFinite(row.pm10));
@@ -107,7 +127,7 @@
             const max = Math.max(10, ...points.flatMap(point => [point.pm1, point.pm25, point.pm10]));
             context.strokeStyle = '#aac0ca'; context.beginPath(); context.moveTo(50, 15); context.lineTo(50, height - 35); context.lineTo(width - 15, height - 35); context.stroke();
             [['pm1', '#168aad'], ['pm25', '#ee6c4d'], ['pm10', '#293241']].forEach(([key, color]) => { context.strokeStyle = color; context.beginPath(); points.forEach((point, index) => { const x = 50 + index * (width - 70) / Math.max(1, points.length - 1), y = height - 35 - point[key] * (height - 55) / max; index ? context.lineTo(x, y) : context.moveTo(x, y); }); context.stroke(); });
-            context.fillStyle = '#17324d'; context.fillText(`0 - ${max.toFixed(0)} ug/m3`, 5, 15); context.fillText(points[0].time || '', 50, height - 12); context.fillText(points[points.length - 1].time || '', width - 100, height - 12);
+            context.fillStyle = '#d7fff4'; context.fillText(`0 - ${max.toFixed(0)} ug/m3`, 5, 15); context.fillText(points[0].time || '', 50, height - 12); context.fillText(points[points.length - 1].time || '', width - 100, height - 12);
         }
     </script>
 </body>
