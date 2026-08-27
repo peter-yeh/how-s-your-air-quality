@@ -16,7 +16,10 @@ namespace
     void sendChunk(const String &chunk, void *)
     {
         dataCharacteristic->setValue(chunk.c_str());
-        dataCharacteristic->notify();
+        if (!dataCharacteristic->notify())
+        {
+            Serial.printf("BLE notification failed (%u bytes)\n", chunk.length());
+        }
         delay(100);
     }
 
@@ -95,6 +98,7 @@ bool BleServer::begin(StorageController *storage)
     service->start();
 
     NimBLEAdvertising *advertising = NimBLEDevice::getAdvertising();
+    advertising->enableScanResponse(true);
     advertising->addServiceUUID(SERVICE_UUID);
     advertising->setName("Air Quality Monitor");
     advertising->start();

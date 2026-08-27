@@ -103,9 +103,9 @@
                 try { const value = JSON.parse(chunk); $('pm1').textContent = value.pm1; $('pm25').textContent = value.pm25; $('pm10').textContent = value.pm10; } catch (_) { }
                 return;
             }
-            if (!transferType && chunk.includes('BEGIN LIST\n')) transferType = 'list';
-            if (!transferType && chunk.includes('BEGIN CSV\n')) transferType = 'csv';
             transfer += chunk;
+            if (!transferType && transfer.includes('BEGIN LIST\n')) transferType = 'list';
+            if (!transferType && transfer.includes('BEGIN CSV\n')) transferType = 'csv';
             if (transferType === 'list' && transfer.includes('END LIST\n')) {
                 const body = transfer.split('BEGIN LIST\n')[1].split('END LIST\n')[0];
                 const files = body.split(/\r?\n/).map(file => file.trim()).filter(file => file.startsWith('/') && file.toLowerCase().endsWith('.csv'));
