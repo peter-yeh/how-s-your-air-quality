@@ -17,7 +17,7 @@ namespace
     {
         dataCharacteristic->setValue(chunk.c_str());
         dataCharacteristic->notify();
-        delay(8);
+        delay(100);
     }
 
     class CommandCallbacks : public NimBLECharacteristicCallbacks

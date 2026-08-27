@@ -93,11 +93,12 @@
         const serviceUuid = '4fa8691a-1360-4c27-ba5c-057245417c92';
         const dataUuid = '4fa8691b-1360-4c27-ba5c-057245417c92';
         const commandUuid = '4fa8691c-1360-4c27-ba5c-057245417c92';
-        let dataCharacteristic, commandCharacteristic, transfer = '', transferType = '';
+        let dataCharacteristic, commandCharacteristic, transfer = '', transferType = '', transferTimer;
         const $ = id => document.getElementById(id);
         function setStatus(message) { $('status').textContent = message; }
         function handleData(event) {
             const chunk = new TextDecoder().decode(event.target.value);
+            console.debug('BLE data:', JSON.stringify(chunk));
             if (!transferType && chunk.startsWith('{')) {
                 try { const value = JSON.parse(chunk); $('pm1').textContent = value.pm1; $('pm25').textContent = value.pm25; $('pm10').textContent = value.pm10; } catch (_) { }
                 return;
@@ -111,16 +112,22 @@
                 $('file').innerHTML = files.length ? '<option value="">Select a CSV file</option>' + files.map(file => `<option>${file}</option>`).join('') : '<option value="">No CSV files found</option>';
                 $('file').disabled = false; transfer = '';
                 transferType = '';
+                clearTimeout(transferTimer);
                 $('csvFiles').textContent = files.length ? `CSV files: ${files.join(', ')}` : 'No CSV files found on the SD card';
                 setStatus(files.length ? `${files.length} CSV file(s) found` : 'No CSV files found on the SD card');
             } else if (transferType === 'csv' && transfer.includes('END CSV\n')) {
                 const csv = transfer.split('BEGIN CSV\n')[1].split('END CSV\n')[0]; $('csv').textContent = csv; drawGraph(csv); transfer = '';
                 transferType = '';
+                clearTimeout(transferTimer);
                 setStatus(csv.startsWith('ERROR FILE') ? 'Could not open that CSV file' : 'CSV loaded');
             }
         }
         async function write(command) {
-            try { await commandCharacteristic.writeValue(new TextEncoder().encode(command)); }
+            try {
+                const value = new TextEncoder().encode(command);
+                if (commandCharacteristic.writeValueWithResponse) await commandCharacteristic.writeValueWithResponse(value);
+                else await commandCharacteristic.writeValue(value);
+            }
             catch (error) { transfer = ''; transferType = ''; setStatus(`Command failed: ${error.message}`); }
         }
         $('connect').onclick = async () => {
@@ -133,12 +140,16 @@
                 $('file').disabled = false;
                 setStatus(`Connected to ${device.name || 'ESP32'}; loading CSV files...`);
                 await write('CLIENT_NAME:' + (device.name || 'Unknown browser device'));
-                transfer = ''; transferType = 'list'; await write('LIST');
+                transfer = ''; transferType = 'list';
+                transferTimer = setTimeout(() => { transfer = ''; transferType = ''; setStatus('CSV list timed out. Check BLE notifications and reload the page.'); }, 5000);
+                await write('LIST');
             } catch (error) { setStatus(error.message); }
         };
         $('file').onchange = () => {
             if (!$('file').value) return;
-            transfer = ''; transferType = 'csv'; setStatus('Loading CSV...'); write('GET:' + $('file').value);
+            transfer = ''; transferType = 'csv'; setStatus('Loading CSV...');
+            transferTimer = setTimeout(() => { transfer = ''; transferType = ''; setStatus('CSV load timed out.'); }, 10000);
+            write('GET:' + $('file').value);
         };
         function drawGraph(csv) {
             const rows = csv.trim().split(/\r?\n/).map(row => row.split(','));
