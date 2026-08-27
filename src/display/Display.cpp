@@ -74,7 +74,7 @@ void DisplayController::begin()
 
     // Compact header and readings leave a 20-pixel edge margin.
     display.setTextColor(ST77XX_WHITE);
-    display.setTextSize(SMALL_FONT_SIZE);
+    display.setTextSize(NORMAL_FONT_SIZE);
     display.setCursor(20, 20);
     display.println("Air Quality Monitor");
     showStatus("--:--:--", false);
