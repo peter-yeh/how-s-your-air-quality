@@ -15,6 +15,9 @@ WirelessController wireless;
 void airQualityTask(void *pvParameters)
 {
   uint32_t lastStatusUpdate = 0;
+  uint32_t lastBurnInShift = 0;
+  uint8_t shiftIndex = 0;
+  constexpr int16_t burnInShifts[] = {0, 5, 0, -5};
 
   while (true)
   {
@@ -51,7 +54,14 @@ void airQualityTask(void *pvParameters)
     }
 
     display.update();
-    vTaskDelay(pdMS_TO_TICKS(50));
+    if (millis() - lastBurnInShift >= 30000)
+    {
+      shiftIndex = (shiftIndex + 1) % 4;
+      display.shiftScreen(burnInShifts[shiftIndex], 0);
+      lastBurnInShift = millis();
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(200));
   }
 }
 

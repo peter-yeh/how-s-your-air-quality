@@ -77,12 +77,18 @@ void GraphPlotter::drawScaleLabels(Adafruit_GFX &display)
     display.fillRect(0, originY - 6, originX - 1, height + 12, ST77XX_BLACK);
     display.setTextSize(1);
     display.setTextColor(COLOR_BORDER);
-    display.setCursor(2, originY - 3);
+    display.setCursor(originX - 18, originY - 3);
     display.print((int)maxScale);
-    display.setCursor(2, originY + (height / 2) - 3);
+    display.setCursor(originX - 18, originY + (height / 2) - 3);
     display.print((int)((minScale + maxScale) / 2.0f));
-    display.setCursor(2, originY + height - 4);
+    display.setCursor(originX - 18, originY + height - 4);
     display.print((int)minScale);
+}
+
+void GraphPlotter::setPosition(int16_t x, int16_t y)
+{
+    originX = x;
+    originY = y;
 }
 
 void GraphPlotter::addSample(float pm1, float pm25, float pm10)

@@ -13,6 +13,7 @@ public:
     void init(Adafruit_GFX &display);
     void addSample(float pm1, float pm25, float pm10);
     void draw(Adafruit_GFX &display);
+    void setPosition(int16_t x, int16_t y);
     void reset();
 
 private:
