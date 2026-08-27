@@ -5,13 +5,17 @@
 #include "display/Display.h"
 #include "storage/Storage.h"
 #include "sensor/Sensor.h"
+#include "wireless/Wireless.h"
 
 DisplayController display;
 // StorageController storage;
 SensorController sensor;
+WirelessController wireless;
 
 void airQualityTask(void *pvParameters)
 {
+  uint32_t lastStatusUpdate = 0;
+
   while (true)
   {
     float pm1 = 0;
@@ -20,20 +24,19 @@ void airQualityTask(void *pvParameters)
 
     if (sensor.read(pm1, pm25, pm10))
     {
-      uint32_t elapsedSeconds = millis() / 1000;
-      unsigned long hours = elapsedSeconds / 3600;
-      unsigned long minutes = (elapsedSeconds % 3600) / 60;
-      unsigned long seconds = elapsedSeconds % 60;
-
-      Serial.printf("[%02lu:%02lu:%02lu] PM1.0: %3d | PM2.5: %3d | PM10: %3d ug/m3\n",
-                    hours,
-                    minutes,
-                    seconds,
+      Serial.printf("[%s] PM1.0: %3d | PM2.5: %3d | PM10: %3d ug/m3\n",
+                    wireless.currentTime().c_str(),
                     (int)(pm1 + 0.5f),
                     (int)(pm25 + 0.5f),
                     (int)(pm10 + 0.5f));
 
       display.showPM(pm1, pm25, pm10);
+    }
+
+    if (millis() - lastStatusUpdate >= 1000)
+    {
+      display.showStatus(wireless.clockTime().c_str(), wireless.connected());
+      lastStatusUpdate = millis();
     }
 
     display.update();
@@ -45,6 +48,12 @@ void setup()
 {
   Serial.begin(115200);
   display.begin();
+
+  if (!wireless.begin("AnsonGarden", "66485973"))
+  {
+    Serial.println("WARNING: Continuing without synchronized time.");
+  }
+
   // if (storage.begin())
   // {
   //   storage.testReadWrite();

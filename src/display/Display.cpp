@@ -23,6 +23,35 @@ namespace
     float currentPM25 = 0;
     float currentPM10 = 0;
     bool needsRedraw = false;
+
+    void drawWifiIcon(bool connected)
+    {
+        const uint16_t color = connected ? ST77XX_GREEN : ST77XX_RED;
+
+        // Clear background bounding box (11x10 px)
+        display.fillRect(x - 5, y - 7, 11, 10, ST77XX_BLACK);
+
+        // 1. Base Dot
+        display.drawPixel(x, y, color);
+
+        // 2. Inner Arc (Radius = 3)
+        display.drawPixel(x - 2, y - 2, color);
+        display.drawPixel(x - 1, y - 3, color);
+        display.drawPixel(x, y - 3, color);
+        display.drawPixel(x + 1, y - 3, color);
+        display.drawPixel(x + 2, y - 2, color);
+
+        // 3. Outer Arc (Radius = 5)
+        display.drawPixel(x - 4, y - 4, color);
+        display.drawPixel(x - 3, y - 5, color);
+        display.drawPixel(x - 2, y - 6, color);
+        display.drawPixel(x - 1, y - 6, color);
+        display.drawPixel(x, y - 6, color);
+        display.drawPixel(x + 1, y - 6, color);
+        display.drawPixel(x + 2, y - 6, color);
+        display.drawPixel(x + 3, y - 5, color);
+        display.drawPixel(x + 4, y - 4, color);
+    }
 }
 
 void DisplayController::begin()
@@ -40,6 +69,7 @@ void DisplayController::begin()
     display.setTextSize(2);
     display.setCursor(10, 6);
     display.println("Air Quality Monitor");
+    showStatus("--:--:--", false);
 
     // Static Value Labels (Color-coded to match graph curves)
     display.setTextSize(2);
@@ -110,4 +140,14 @@ void DisplayController::showPM(float pm1Concentration, float pm25Concentration, 
     // Add exactly one sample per valid measurement
     graph.addSample(currentPM1, currentPM25, currentPM10);
     needsRedraw = true;
+}
+
+void DisplayController::showStatus(const char *timeText, bool wifiConnected)
+{
+    display.fillRect(236, 0, 56, 20, ST77XX_BLACK);
+    display.setTextSize(1);
+    display.setTextColor(ST77XX_WHITE);
+    display.setCursor(238, 7);
+    display.print(timeText);
+    drawWifiIcon(wifiConnected);
 }
