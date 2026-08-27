@@ -69,6 +69,11 @@
             max-height: 260px;
             overflow: auto;
         }
+
+        #csvFiles {
+            margin: .75rem 0;
+            color: #8fffe0;
+        }
     </style>
 </head>
 
@@ -78,6 +83,7 @@
     <select id="file" disabled>
         <option>Connect to load CSV files</option>
     </select>
+    <div id="csvFiles">No CSV files loaded yet.</div>
     <div id="status">Disconnected</div>
     <div class="readings"><span>PM1: <b id="pm1">-</b></span><span>PM2.5: <b id="pm25">-</b></span><span>PM10: <b
                 id="pm10">-</b></span></div>
@@ -105,6 +111,7 @@
                 $('file').innerHTML = files.length ? '<option value="">Select a CSV file</option>' + files.map(file => `<option>${file}</option>`).join('') : '<option value="">No CSV files found</option>';
                 $('file').disabled = false; transfer = '';
                 transferType = '';
+                $('csvFiles').textContent = files.length ? `CSV files: ${files.join(', ')}` : 'No CSV files found on the SD card';
                 setStatus(files.length ? `${files.length} CSV file(s) found` : 'No CSV files found on the SD card');
             } else if (transferType === 'csv' && transfer.includes('END CSV\n')) {
                 const csv = transfer.split('BEGIN CSV\n')[1].split('END CSV\n')[0]; $('csv').textContent = csv; drawGraph(csv); transfer = '';
