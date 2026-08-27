@@ -14,6 +14,11 @@ namespace
     constexpr uint8_t SD_MISO = 19;
     constexpr uint32_t SD_FREQUENCY = 20000000;
 
+    bool isCsvFile(const String &name)
+    {
+        return name.endsWith(".csv") || name.endsWith(".CSV");
+    }
+
 }
 
 StorageController::StorageController() : sdSpi(HSPI)
@@ -155,6 +160,70 @@ bool StorageController::saveReading(const Reading &reading)
     csvRow += String(reading.yCoord, 2);
 
     return saveToCsv(csvRow);
+}
+
+bool StorageController::listCsvFiles(String &result)
+{
+    if (!initialized)
+    {
+        return false;
+    }
+
+    result = "";
+    File root = SD.open("/");
+    if (!root || !root.isDirectory())
+    {
+        return false;
+    }
+
+    File entry = root.openNextFile();
+    while (entry)
+    {
+        if (entry.isDirectory())
+        {
+            File child = entry.openNextFile();
+            while (child)
+            {
+                if (!child.isDirectory() && isCsvFile(String(child.name())))
+                {
+                    result += String(child.name());
+                    result += "\n";
+                }
+                child = entry.openNextFile();
+            }
+        }
+        else if (isCsvFile(String(entry.name())))
+        {
+            result += String(entry.name());
+            result += "\n";
+        }
+        entry = root.openNextFile();
+    }
+    return true;
+}
+
+bool StorageController::streamFile(const String &path, void (*onChunk)(const String &, void *), void *context)
+{
+    if (!initialized || !onChunk || !path.startsWith("/") || path.indexOf("..") >= 0)
+    {
+        return false;
+    }
+
+    File file = SD.open(path, FILE_READ);
+    if (!file || file.isDirectory())
+    {
+        return false;
+    }
+
+    char buffer[181];
+    while (file.available())
+    {
+        const size_t count = file.readBytes(buffer, sizeof(buffer) - 1);
+        buffer[count] = '\0';
+        onChunk(String(buffer), context);
+    }
+    file.close();
+    return true;
 }
 
 bool StorageController::testReadWrite()

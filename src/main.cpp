@@ -6,11 +6,13 @@
 #include "storage/Storage.h"
 #include "sensor/Sensor.h"
 #include "wireless/Wireless.h"
+#include "wireless/BleServer.h"
 
 DisplayController display;
 StorageController storage;
 SensorController sensor;
 WirelessController wireless;
+BleServer ble;
 
 void airQualityTask(void *pvParameters)
 {
@@ -45,6 +47,7 @@ void airQualityTask(void *pvParameters)
       }
 
       display.showPM(pm1, pm25, pm10);
+      ble.updateReading(pm1, pm25, pm10, readingTime);
     }
 
     if (millis() - lastStatusUpdate >= 1000)
@@ -79,6 +82,8 @@ void setup()
   {
     storage.testReadWrite();
   }
+
+  ble.begin(&storage);
 
   Serial.println("\n--- BMV080 Initializing ---");
   while (!sensor.begin())

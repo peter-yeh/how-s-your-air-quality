@@ -53,18 +53,15 @@ void GraphPlotter::init(Adafruit_GFX &display)
 
 void GraphPlotter::updateScale()
 {
-    float smallest = historyPM1[0];
     float largest = historyPM1[0];
 
     for (uint8_t i = 0; i < historyCount; ++i)
     {
-        smallest = min(smallest, min(historyPM1[i], min(historyPM25[i], historyPM10[i])));
         largest = max(largest, max(historyPM1[i], max(historyPM25[i], historyPM10[i])));
     }
 
-    float padding = max((largest - smallest) * 0.1f, 1.0f);
-    minScale = floorf(max(0.0f, smallest - padding));
-    maxScale = ceilf(largest + padding);
+    minScale = 0.0f;
+    maxScale = ceilf(max(largest * 1.1f, largest + 1.0f));
 
     if (maxScale <= minScale)
     {
