@@ -60,22 +60,42 @@
             margin: .75rem 0;
             color: #8fffe0;
         }
+
+        #fileList {
+            list-style: none;
+            padding: 0;
+        }
+
+        #fileList li {
+            margin: .25rem 0;
+        }
+
+        #graphContainer {
+            overflow-x: auto;
+            border: 1px solid #1c6654;
+            margin-top: 1rem;
+        }
+
+        canvas {
+            display: block;
+            height: 360px;
+        }
     </style>
 </head>
 
 <body>
     <h1>AirQuality ESP32</h1>
     <button id="connect">Connect ESP32</button>
-    <select id="file" disabled>
-        <option>Get list of CSV files</option>
-    </select>
     <div id="status">Disconnected</div>
     <ul id="fileList"></ul>
+    <div id="graphContainer">
+        <canvas id="graph" height="360"></canvas>
+    </div>
     <script>
         const serviceUuid = '4fa8691a-1360-4c27-ba5c-057245417c92';
         const dataUuid = '4fa8691b-1360-4c27-ba5c-057245417c92';
         const commandUuid = '4fa8691c-1360-4c27-ba5c-057245417c92';
-        let dataCharacteristic, commandCharacteristic, transfer = '', transferType = '', transferTimer;
+        let dataCharacteristic, commandCharacteristic, transfer = '', transferType = '';
         const $ = id => document.getElementById(id);
         function setStatus(message) { $('status').textContent = message; }
         function handleData(event) {
@@ -84,11 +104,71 @@
             transfer += chunk;
             if (transfer.includes('BEGIN LIST\n') && transfer.includes('END LIST\n')) {
                 const files = transfer.split('BEGIN LIST\n')[1].split('END LIST\n')[0].split(/\r?\n/).filter(Boolean);
-                $('fileList').innerHTML = files.map(name => `<li>${name}</li>`).join('');
+                renderFileList(files);
                 transfer = '';
+            } else if (transfer.includes('BEGIN CSV\n') && transfer.includes('END CSV\n')) {
+                const csv = transfer.split('BEGIN CSV\n')[1].split('END CSV\n')[0];
+                transfer = '';
+                if (!csv.startsWith('ERROR FILE')) drawGraph(csv);
+                else setStatus('Could not open that CSV file');
             }
         }
 
+        function renderFileList(files) {
+            $('fileList').innerHTML = '';
+            for (const name of files) {
+                const li = document.createElement('li');
+                const button = document.createElement('button');
+                button.textContent = name;
+                button.onclick = () => openFile(name);
+                li.appendChild(button);
+                $('fileList').appendChild(li);
+            }
+        }
+
+        async function openFile(name) {
+            if (!name.toLowerCase().endsWith('.csv')) return;
+            transfer = '';
+            setStatus(`Loading ${name}...`);
+            await commandCharacteristic.writeValue(new TextEncoder().encode('GET:' + name));
+        }
+
+        function drawGraph(csv) {
+            const rows = csv.trim().split(/\r?\n/).map(row => row.split(','));
+            const points = rows.map(row => ({ time: row[0], pm1: +row[1], pm25: +row[2], pm10: +row[3] })).filter(row => Number.isFinite(row.pm10));
+            if (!points.length) { setStatus('CSV has no readable rows'); return; }
+
+            const pointWidth = 40, leftMargin = 50, rightMargin = 15, topMargin = 15, bottomMargin = 35;
+            const width = Math.max(900, leftMargin + rightMargin + points.length * pointWidth);
+            const canvas = $('graph');
+            canvas.width = width;
+            const context = canvas.getContext('2d');
+            const height = canvas.height;
+            context.clearRect(0, 0, width, height);
+
+            const max = Math.max(10, ...points.flatMap(point => [point.pm1, point.pm25, point.pm10]));
+            context.strokeStyle = '#aac0ca';
+            context.beginPath();
+            context.moveTo(leftMargin, topMargin);
+            context.lineTo(leftMargin, height - bottomMargin);
+            context.lineTo(width - rightMargin, height - bottomMargin);
+            context.stroke();
+
+            [['pm1', '#168aad'], ['pm25', '#ee6c4d'], ['pm10', '#293241']].forEach(([key, color]) => {
+                context.strokeStyle = color;
+                context.beginPath();
+                points.forEach((point, index) => {
+                    const x = leftMargin + index * pointWidth, y = height - bottomMargin - point[key] * (height - topMargin - bottomMargin) / max;
+                    index ? context.lineTo(x, y) : context.moveTo(x, y);
+                });
+                context.stroke();
+            });
+
+            context.fillStyle = '#d7fff4';
+            context.fillText(`0 - ${max.toFixed(0)} ug/m3`, 5, 15);
+            points.forEach((point, index) => context.fillText(point.time || '', leftMargin + index * pointWidth - 15, height - 12));
+            setStatus(`CSV loaded: ${points.length} reading(s)`);
+        }
 
         $('connect').onclick = async () => {
             try {

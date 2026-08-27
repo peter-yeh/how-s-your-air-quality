@@ -16,11 +16,9 @@ namespace
     void sendChunk(const String &chunk)
     {
         dataCharacteristic->setValue(chunk.c_str());
-        if (!dataCharacteristic->notify())
-        {
-            Serial.printf("BLE notification failed (%u bytes)\n", chunk.length());
-        }
-        delay(300);
+        const bool ok = dataCharacteristic->notify();
+        Serial.printf("sendChunk: %u bytes, notify %s\n", chunk.length(), ok ? "ok" : "FAILED");
+        delay(20);
     }
 
     class CommandCallbacks : public NimBLECharacteristicCallbacks
@@ -46,6 +44,20 @@ namespace
                 sendChunk("BEGIN LIST\n" + files + "END LIST\n");
                 Serial.println("BLE list response complete");
             }
+            else if (command.startsWith("GET:"))
+            {
+                const String path = command.substring(4);
+                Serial.printf("BLE command received: GET %s\n", path.c_str());
+                sendChunk("BEGIN CSV\n");
+                // Only the most recent readings are sent: BLE bandwidth and graph readability don't scale to entire logs.
+                const bool sent = activeStorage && activeStorage->streamRecentLines(path, 300, sendChunk);
+                if (!sent)
+                {
+                    sendChunk("ERROR FILE\n");
+                }
+                sendChunk("END CSV\n");
+                Serial.println("BLE CSV response complete");
+            }
         }
     };
 
@@ -55,7 +67,7 @@ namespace
         void onConnect(NimBLEServer *, NimBLEConnInfo &connInfo) override
         {
             clientConnected = true;
-            Serial.printf("BLE client connected, peer address: %s\n", connInfo.getAddress().toString().c_str());
+            Serial.printf("BLE client connected, peer address: %s, MTU: %u\n", connInfo.getAddress().toString().c_str(), connInfo.getMTU());
         }
 
         void onDisconnect(NimBLEServer *, NimBLEConnInfo &connInfo, int reason) override
@@ -72,6 +84,7 @@ bool BleServer::begin(StorageController *storage)
     activeStorage = storage;
 
     NimBLEDevice::init("Air Quality Monitor");
+    NimBLEDevice::setMTU(247);
     NimBLEServer *server = NimBLEDevice::createServer();
     server->setCallbacks(new ServerCallbacks());
     NimBLEService *service = server->createService(SERVICE_UUID);

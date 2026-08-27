@@ -29,6 +29,7 @@ public:
     bool listCsvFiles(String &result);
     bool listAllFiles(String &result);
     bool streamFile(const String &path, void (*onChunk)(const String &));
+    bool streamRecentLines(const String &path, size_t maxLines, void (*onChunk)(const String &));
 
 private:
     void printDirectory(fs::FS &filesystem, const char *path);

@@ -256,16 +256,65 @@ bool StorageController::streamFile(const String &path, void (*onChunk)(const Str
     File file = SD.open(path, FILE_READ);
     if (!file || file.isDirectory())
     {
+        Serial.printf("streamFile: cannot open %s\n", path.c_str());
         return false;
     }
 
+    Serial.printf("streamFile: opened %s, size %u bytes\n", path.c_str(), (unsigned)file.size());
     char buffer[181];
+    size_t chunkIndex = 0;
+    while (file.available())
+    {
+        const size_t count = file.readBytes(buffer, sizeof(buffer) - 1);
+        buffer[count] = '\0';
+        Serial.printf("streamFile: chunk %u, %u bytes\n", (unsigned)chunkIndex, (unsigned)count);
+        onChunk(String(buffer));
+        chunkIndex++;
+    }
+    Serial.printf("streamFile: done, %u chunk(s) sent\n", (unsigned)chunkIndex);
+    file.close();
+    return true;
+}
+
+bool StorageController::streamRecentLines(const String &path, size_t maxLines, void (*onChunk)(const String &))
+{
+    if (!initialized || !onChunk || !path.startsWith("/") || path.indexOf("..") >= 0)
+    {
+        return false;
+    }
+
+    File file = SD.open(path, FILE_READ);
+    if (!file || file.isDirectory())
+    {
+        Serial.printf("streamRecentLines: cannot open %s\n", path.c_str());
+        return false;
+    }
+
+    // CSV rows are ~60 bytes; seek near the end instead of reading the whole file.
+    constexpr size_t AVG_LINE_BYTES = 64;
+    const size_t fileSize = file.size();
+    const size_t approxBytes = maxLines * AVG_LINE_BYTES;
+    const size_t startPos = fileSize > approxBytes ? fileSize - approxBytes : 0;
+
+    if (startPos > 0)
+    {
+        file.seek(startPos);
+        while (file.available() && file.read() != '\n')
+        {
+        }
+    }
+
+    Serial.printf("streamRecentLines: %s, size %u bytes, starting at %u\n", path.c_str(), (unsigned)fileSize, (unsigned)file.position());
+    char buffer[181];
+    size_t chunkIndex = 0;
     while (file.available())
     {
         const size_t count = file.readBytes(buffer, sizeof(buffer) - 1);
         buffer[count] = '\0';
         onChunk(String(buffer));
+        chunkIndex++;
     }
+    Serial.printf("streamRecentLines: done, %u chunk(s) sent\n", (unsigned)chunkIndex);
     file.close();
     return true;
 }
