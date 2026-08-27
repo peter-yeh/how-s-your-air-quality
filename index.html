@@ -69,8 +69,8 @@
     <select id="file" disabled>
         <option>Get list of CSV files</option>
     </select>
-    <div id="csvFiles">No CSV files loaded yet.</div>
     <div id="status">Disconnected</div>
+    <ul id="fileList"></ul>
     <script>
         const serviceUuid = '4fa8691a-1360-4c27-ba5c-057245417c92';
         const dataUuid = '4fa8691b-1360-4c27-ba5c-057245417c92';
@@ -78,16 +78,32 @@
         let dataCharacteristic, commandCharacteristic, transfer = '', transferType = '', transferTimer;
         const $ = id => document.getElementById(id);
         function setStatus(message) { $('status').textContent = message; }
+        function handleData(event) {
+            const chunk = new TextDecoder().decode(event.target.value);
+            console.info('BLE data:', chunk);
+            transfer += chunk;
+            if (transfer.includes('BEGIN LIST\n') && transfer.includes('END LIST\n')) {
+                const files = transfer.split('BEGIN LIST\n')[1].split('END LIST\n')[0].split(/\r?\n/).filter(Boolean);
+                $('fileList').innerHTML = files.map(name => `<li>${name}</li>`).join('');
+                transfer = '';
+            }
+        }
 
 
         $('connect').onclick = async () => {
             try {
+                console.info('Connecting to Bluetooth device...');
                 if (!navigator.bluetooth) throw new Error('Web Bluetooth is unavailable. Use Chrome or Edge over HTTPS.');
                 const device = await navigator.bluetooth.requestDevice({ filters: [{ services: [serviceUuid] }] });
                 const server = await device.gatt.connect(); const service = await server.getPrimaryService(serviceUuid);
                 dataCharacteristic = await service.getCharacteristic(dataUuid); commandCharacteristic = await service.getCharacteristic(commandUuid);
                 await dataCharacteristic.startNotifications(); dataCharacteristic.addEventListener('characteristicvaluechanged', handleData);
                 setStatus(`Connected to ${device.name || 'ESP32'}`);
+                console.info('Connected to Bluetooth device.');
+
+                await commandCharacteristic.writeValue(new TextEncoder().encode('LIST'));
+                console.info('Sent LIST command.');
+
             } catch (error) { setStatus("Encountered error connecting: " + error.message); }
         };
 

@@ -11,16 +11,16 @@ namespace
     NimBLECharacteristic *dataCharacteristic = nullptr;
     StorageController *activeStorage = nullptr;
     bool clientConnected = false;
-    volatile bool transferInProgress = false;
 
-    void sendChunk(const String &chunk, void *)
+    // Pushes one chunk to the frontend by notifying dataCharacteristic.
+    void sendChunk(const String &chunk)
     {
         dataCharacteristic->setValue(chunk.c_str());
         if (!dataCharacteristic->notify())
         {
             Serial.printf("BLE notification failed (%u bytes)\n", chunk.length());
         }
-        delay(100);
+        delay(300);
     }
 
     class CommandCallbacks : public NimBLECharacteristicCallbacks
@@ -29,40 +29,23 @@ namespace
         void onWrite(NimBLECharacteristic *characteristic, NimBLEConnInfo &) override
         {
             const String command = characteristic->getValue().c_str();
+            Serial.printf("BLE command received: %s\n", command.c_str());
             if (command.startsWith("CLIENT_NAME:"))
             {
                 Serial.printf("BLE client name: %s\n", command.substring(12).c_str());
                 return;
             }
-            transferInProgress = true;
             if (command == "LIST")
             {
                 String files;
-                Serial.println("BLE command received: LIST");
-                sendChunk("BEGIN LIST\n", nullptr);
-                if (activeStorage && activeStorage->listCsvFiles(files))
+                if (!activeStorage || !activeStorage->listAllFiles(files))
                 {
-                    Serial.printf("CSV list size: %u bytes\n", files.length());
-                    for (size_t start = 0; start < files.length(); start += 180)
-                    {
-                        sendChunk(files.substring(start, start + 180), nullptr);
-                    }
+                    Serial.println("listAllFiles() failed or storage unavailable.");
                 }
-                sendChunk("END LIST\n", nullptr);
+                Serial.printf("listAllFiles() returned %u bytes:\n%s\n", files.length(), files.c_str());
+                sendChunk("BEGIN LIST\n" + files + "END LIST\n");
                 Serial.println("BLE list response complete");
             }
-            else if (command.startsWith("GET:"))
-            {
-                Serial.printf("BLE command received: GET %s\n", command.substring(4).c_str());
-                sendChunk("BEGIN CSV\n", nullptr);
-                const bool sent = activeStorage && activeStorage->streamFile(command.substring(4), sendChunk, nullptr);
-                if (!sent)
-                {
-                    sendChunk("ERROR FILE\n", nullptr);
-                }
-                sendChunk("END CSV\n", nullptr);
-            }
-            transferInProgress = false;
         }
     };
 
@@ -87,6 +70,7 @@ namespace
 bool BleServer::begin(StorageController *storage)
 {
     activeStorage = storage;
+
     NimBLEDevice::init("Air Quality Monitor");
     NimBLEServer *server = NimBLEDevice::createServer();
     server->setCallbacks(new ServerCallbacks());

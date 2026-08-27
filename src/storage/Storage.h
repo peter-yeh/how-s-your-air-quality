@@ -27,7 +27,8 @@ public:
     bool saveToCsv(const String &data);
     bool saveReading(const Reading &reading);
     bool listCsvFiles(String &result);
-    bool streamFile(const String &path, void (*onChunk)(const String &, void *), void *context);
+    bool listAllFiles(String &result);
+    bool streamFile(const String &path, void (*onChunk)(const String &));
 
 private:
     void printDirectory(fs::FS &filesystem, const char *path);

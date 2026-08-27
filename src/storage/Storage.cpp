@@ -202,7 +202,51 @@ bool StorageController::listCsvFiles(String &result)
     return true;
 }
 
-bool StorageController::streamFile(const String &path, void (*onChunk)(const String &, void *), void *context)
+bool StorageController::listAllFiles(String &result)
+{
+    if (!initialized)
+    {
+        return false;
+    }
+
+    result = "";
+    File root = SD.open("/");
+    if (!root || !root.isDirectory())
+    {
+        return false;
+    }
+
+    File entry = root.openNextFile();
+    while (entry)
+    {
+        const String entryName = String(entry.name());
+        if (entry.isDirectory())
+        {
+            if (entryName != "System Volume Information")
+            {
+                File child = entry.openNextFile();
+                while (child)
+                {
+                    if (!child.isDirectory())
+                    {
+                        result += "/" + entryName + "/" + String(child.name());
+                        result += "\n";
+                    }
+                    child = entry.openNextFile();
+                }
+            }
+        }
+        else
+        {
+            result += "/" + entryName;
+            result += "\n";
+        }
+        entry = root.openNextFile();
+    }
+    return true;
+}
+
+bool StorageController::streamFile(const String &path, void (*onChunk)(const String &))
 {
     if (!initialized || !onChunk || !path.startsWith("/") || path.indexOf("..") >= 0)
     {
@@ -220,7 +264,7 @@ bool StorageController::streamFile(const String &path, void (*onChunk)(const Str
     {
         const size_t count = file.readBytes(buffer, sizeof(buffer) - 1);
         buffer[count] = '\0';
-        onChunk(String(buffer), context);
+        onChunk(String(buffer));
     }
     file.close();
     return true;
