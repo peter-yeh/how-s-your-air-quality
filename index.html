@@ -75,11 +75,9 @@
 <body>
     <h1>AirQuality ESP32</h1>
     <button id="connect">Connect ESP32</button>
-    <button id="files" disabled>List CSV files</button>
     <select id="file" disabled>
-        <option>Select a CSV file</option>
+        <option>Connect to load CSV files</option>
     </select>
-    <button id="load" disabled>Load graph</button>
     <div id="status">Disconnected</div>
     <div class="readings"><span>PM1: <b id="pm1">-</b></span><span>PM2.5: <b id="pm25">-</b></span><span>PM10: <b
                 id="pm10">-</b></span></div>
@@ -104,8 +102,8 @@
             if (transferType === 'list' && transfer.includes('END LIST\n')) {
                 const body = transfer.split('BEGIN LIST\n')[1].split('END LIST\n')[0];
                 const files = body.split(/\r?\n/).map(file => file.trim()).filter(file => file.startsWith('/') && file.toLowerCase().endsWith('.csv'));
-                $('file').innerHTML = files.length ? files.map(file => `<option>${file}</option>`).join('') : '<option>No CSV files found</option>';
-                $('file').disabled = !files.length; $('load').disabled = !files.length; transfer = '';
+                $('file').innerHTML = files.length ? '<option value="">Select a CSV file</option>' + files.map(file => `<option>${file}</option>`).join('') : '<option value="">No CSV files found</option>';
+                $('file').disabled = false; transfer = '';
                 transferType = '';
                 setStatus(files.length ? `${files.length} CSV file(s) found` : 'No CSV files found on the SD card');
             } else if (transferType === 'csv' && transfer.includes('END CSV\n')) {
@@ -125,11 +123,16 @@
                 const server = await device.gatt.connect(); const service = await server.getPrimaryService(serviceUuid);
                 dataCharacteristic = await service.getCharacteristic(dataUuid); commandCharacteristic = await service.getCharacteristic(commandUuid);
                 await dataCharacteristic.startNotifications(); dataCharacteristic.addEventListener('characteristicvaluechanged', handleData);
-                $('files').disabled = false; setStatus(`Connected to ${device.name || 'ESP32'}`);
+                $('file').disabled = false;
+                setStatus(`Connected to ${device.name || 'ESP32'}; loading CSV files...`);
+                await write('CLIENT_NAME:' + (device.name || 'Unknown browser device'));
+                transfer = ''; transferType = 'list'; await write('LIST');
             } catch (error) { setStatus(error.message); }
         };
-        $('files').onclick = () => { transfer = ''; transferType = 'list'; setStatus('Reading CSV file list...'); write('LIST'); };
-        $('load').onclick = () => { transfer = ''; transferType = 'csv'; setStatus('Loading CSV...'); write('GET:' + $('file').value); };
+        $('file').onchange = () => {
+            if (!$('file').value) return;
+            transfer = ''; transferType = 'csv'; setStatus('Loading CSV...'); write('GET:' + $('file').value);
+        };
         function drawGraph(csv) {
             const rows = csv.trim().split(/\r?\n/).map(row => row.split(','));
             const points = rows.map(row => ({ time: row[0], pm1: +row[1], pm25: +row[2], pm10: +row[3] })).filter(row => Number.isFinite(row.pm10));

@@ -30,11 +30,11 @@ void airQualityTask(void *pvParameters)
     if (sensor.read(pm1, pm25, pm10))
     {
       const String readingTime = wireless.currentTime();
-      Serial.printf("[%s] PM1.0: %3d | PM2.5: %3d | PM10: %3d ug/m3\n",
-                    readingTime.c_str(),
-                    (int)(pm1 + 0.5f),
-                    (int)(pm25 + 0.5f),
-                    (int)(pm10 + 0.5f));
+      // Serial.printf("[%s] PM1.0: %3d | PM2.5: %3d | PM10: %3d ug/m3\n",
+      //               readingTime.c_str(),
+      //               (int)(pm1 + 0.5f),
+      //               (int)(pm25 + 0.5f),
+      //               (int)(pm10 + 0.5f));
 
       if (readingTime != "time unavailable")
       {
@@ -47,7 +47,6 @@ void airQualityTask(void *pvParameters)
       }
 
       display.showPM(pm1, pm25, pm10);
-      ble.updateReading(pm1, pm25, pm10, readingTime);
     }
 
     if (millis() - lastStatusUpdate >= 1000)
