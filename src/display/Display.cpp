@@ -151,8 +151,15 @@ void DisplayController::update()
     display.setCursor(116 + screenShiftX, 77 + screenShiftY);
     display.print((int)(currentPM10 + 0.5f));
 
-    // Redraw graph with latest history
-    graph.draw(display);
+    if (graphUpdatesEnabled)
+    {
+        graph.draw(display);
+    }
+}
+
+void DisplayController::setGraphUpdatesEnabled(bool enabled)
+{
+    graphUpdatesEnabled = enabled;
 }
 
 void DisplayController::showPM(float pm1Concentration, float pm25Concentration, float pm10Concentration)
@@ -161,8 +168,10 @@ void DisplayController::showPM(float pm1Concentration, float pm25Concentration, 
     currentPM25 = pm25Concentration;
     currentPM10 = pm10Concentration;
 
-    // Add exactly one sample per valid measurement
-    graph.addSample(currentPM1, currentPM25, currentPM10);
+    if (graphUpdatesEnabled)
+    {
+        graph.addSample(currentPM1, currentPM25, currentPM10);
+    }
     needsRedraw = true;
 }
 

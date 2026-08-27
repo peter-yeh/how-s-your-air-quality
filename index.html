@@ -6,7 +6,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>AirQuality ESP32</title>
     <style>
-        :root { color-scheme: dark; }
+        :root {
+            color-scheme: dark;
+        }
+
         body {
             font: 16px system-ui, sans-serif;
             max-width: 900px;
@@ -16,7 +19,8 @@
             background: #000;
         }
 
-        button, select {
+        button,
+        select {
             font: inherit;
             padding: .55rem .8rem;
             margin: .25rem .25rem .25rem 0;
@@ -26,8 +30,15 @@
             border-radius: 3px;
         }
 
-        button:disabled, select:disabled { color: #54736c; border-color: #29463f; }
-        button:not(:disabled):hover { background: #10382d; }
+        button:disabled,
+        select:disabled {
+            color: #54736c;
+            border-color: #29463f;
+        }
+
+        button:not(:disabled):hover {
+            background: #10382d;
+        }
 
         #status {
             padding: .7rem;

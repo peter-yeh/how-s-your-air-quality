@@ -11,6 +11,7 @@ namespace
     NimBLECharacteristic *dataCharacteristic = nullptr;
     StorageController *activeStorage = nullptr;
     bool clientConnected = false;
+    volatile bool transferInProgress = false;
 
     void sendChunk(const String &chunk, void *)
     {
@@ -25,6 +26,7 @@ namespace
         void onWrite(NimBLECharacteristic *characteristic, NimBLEConnInfo &) override
         {
             const String command = characteristic->getValue().c_str();
+            transferInProgress = true;
             if (command == "LIST")
             {
                 String files;
@@ -48,6 +50,7 @@ namespace
                 }
                 sendChunk("END CSV\n", nullptr);
             }
+            transferInProgress = false;
         }
     };
 
@@ -95,7 +98,7 @@ bool BleServer::connected() const
 
 void BleServer::updateReading(float pm1, float pm25, float pm10, const String &time)
 {
-    if (!dataCharacteristic)
+    if (!dataCharacteristic || !clientConnected || transferInProgress)
     {
         return;
     }
