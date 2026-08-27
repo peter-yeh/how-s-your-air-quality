@@ -15,9 +15,17 @@ namespace
     // Pushes one chunk to the frontend by notifying dataCharacteristic.
     void sendChunk(const String &chunk)
     {
+        Serial.printf("[sendChunk] Preparing to send %u bytes\n", chunk.length());
         dataCharacteristic->setValue(chunk.c_str());
         const bool ok = dataCharacteristic->notify();
-        Serial.printf("sendChunk: %u bytes, notify %s\n", chunk.length(), ok ? "ok" : "FAILED");
+        if (ok)
+        {
+            Serial.printf("[sendChunk] Successfully sent %u bytes\n", chunk.length());
+        }
+        else
+        {
+            Serial.printf("[sendChunk] ERROR: Failed to notify %u bytes!\n", chunk.length());
+        }
         delay(20);
     }
 
@@ -35,28 +43,38 @@ namespace
             }
             if (command == "LIST")
             {
+                Serial.println("[LIST] Starting LIST command processing");
                 String files;
                 if (!activeStorage || !activeStorage->listAllFiles(files))
                 {
-                    Serial.println("listAllFiles() failed or storage unavailable.");
+                    Serial.println("[LIST] ERROR: listAllFiles() failed or storage unavailable.");
                 }
-                Serial.printf("listAllFiles() returned %u bytes:\n%s\n", files.length(), files.c_str());
+                Serial.printf("[LIST] Retrieved file list: %u bytes\n", files.length());
+                Serial.println("[LIST] Sending LIST response...");
                 sendChunk("BEGIN LIST\n" + files + "END LIST\n");
-                Serial.println("BLE list response complete");
+                Serial.println("[LIST] Response complete");
             }
             else if (command.startsWith("GET:"))
             {
                 const String path = command.substring(4);
-                Serial.printf("BLE command received: GET %s\n", path.c_str());
+                Serial.printf("[GET] Starting GET command for path: %s\n", path.c_str());
+                Serial.println("[GET] Sending CSV header...");
                 sendChunk("BEGIN CSV\n");
                 // Only the most recent readings are sent: BLE bandwidth and graph readability don't scale to entire logs.
+                Serial.println("[GET] Streaming up to 300 recent lines...");
                 const bool sent = activeStorage && activeStorage->streamRecentLines(path, 300, sendChunk);
                 if (!sent)
                 {
+                    Serial.println("[GET] ERROR: Failed to stream file data");
                     sendChunk("ERROR FILE\n");
                 }
+                else
+                {
+                    Serial.println("[GET] Successfully streamed file data");
+                }
+                Serial.println("[GET] Sending CSV footer...");
                 sendChunk("END CSV\n");
-                Serial.println("BLE CSV response complete");
+                Serial.println("[GET] Response complete");
             }
         }
     };
