@@ -106,6 +106,9 @@
                 console.log(`[Chunk ${chunkCount}] Received ${chunk.length} bytes: "${chunk.substring(0, 50)}${chunk.length > 50 ? '...' : ''}"`);
                 transfer += chunk;
 
+                // Send acknowledgment to backend to enable flow control
+                commandCharacteristic.writeValue(new TextEncoder().encode('ACK'));
+
                 // Show real-time progress
                 const totalBytes = transfer.length;
                 console.log(`[Progress] Total received: ${totalBytes} bytes in ${chunkCount} chunks`);

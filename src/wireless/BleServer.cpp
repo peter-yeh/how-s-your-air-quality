@@ -11,22 +11,42 @@ namespace
     NimBLECharacteristic *dataCharacteristic = nullptr;
     StorageController *activeStorage = nullptr;
     bool clientConnected = false;
+    volatile bool ackReceived = false;             // Flow control: wait for client ACK
+    constexpr unsigned long ACK_TIMEOUT_MS = 5000; // 5 second timeout for ACK
 
     // Pushes one chunk to the frontend by notifying dataCharacteristic.
+    // Uses flow control: waits for ACK from client before returning.
     void sendChunk(const String &chunk)
     {
         Serial.printf("[sendChunk] Preparing to send %u bytes\n", chunk.length());
+        ackReceived = false; // Reset ACK flag
         dataCharacteristic->setValue(chunk.c_str());
         const bool ok = dataCharacteristic->notify();
         if (ok)
         {
-            Serial.printf("[sendChunk] Successfully sent %u bytes\n", chunk.length());
+            Serial.printf("[sendChunk] Successfully sent %u bytes, waiting for ACK...\n", chunk.length());
         }
         else
         {
             Serial.printf("[sendChunk] ERROR: Failed to notify %u bytes!\n", chunk.length());
+            return;
         }
-        delay(20);
+
+        // Wait for ACK from client (with timeout)
+        unsigned long startTime = millis();
+        while (!ackReceived && (millis() - startTime < ACK_TIMEOUT_MS))
+        {
+            delay(5); // Small delay to prevent busy-waiting
+        }
+
+        if (ackReceived)
+        {
+            Serial.printf("[sendChunk] ACK received for %u bytes\n", chunk.length());
+        }
+        else
+        {
+            Serial.printf("[sendChunk] WARNING: No ACK received for %u bytes (timeout)\n", chunk.length());
+        }
     }
 
     class CommandCallbacks : public NimBLECharacteristicCallbacks
@@ -36,6 +56,14 @@ namespace
         {
             const String command = characteristic->getValue().c_str();
             Serial.printf("BLE command received: %s\n", command.c_str());
+
+            if (command == "ACK")
+            {
+                Serial.println("[ACK] Acknowledgment received from client");
+                ackReceived = true;
+                return;
+            }
+
             if (command.startsWith("CLIENT_NAME:"))
             {
                 Serial.printf("BLE client name: %s\n", command.substring(12).c_str());
