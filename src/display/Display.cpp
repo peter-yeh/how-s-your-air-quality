@@ -26,31 +26,32 @@ namespace
 
     void drawWifiIcon(bool connected)
     {
+        constexpr int16_t ICON_X = 310;
+        constexpr int16_t ICON_Y = 10;
         const uint16_t color = connected ? ST77XX_GREEN : ST77XX_RED;
 
-        // Clear background bounding box (11x10 px)
-        display.fillRect(x - 5, y - 7, 11, 10, ST77XX_BLACK);
+        // Clear compact bounding box around (310, 10) - 11px wide, 9px high
+        display.fillRect(ICON_X - 5, ICON_Y - 6, 11, 9, ST77XX_BLACK);
 
         // 1. Base Dot
-        display.drawPixel(x, y, color);
+        display.drawPixel(ICON_X, ICON_Y, color);
 
         // 2. Inner Arc (Radius = 3)
-        display.drawPixel(x - 2, y - 2, color);
-        display.drawPixel(x - 1, y - 3, color);
-        display.drawPixel(x, y - 3, color);
-        display.drawPixel(x + 1, y - 3, color);
-        display.drawPixel(x + 2, y - 2, color);
+        display.drawPixel(ICON_X - 2, ICON_Y - 2, color);
+        display.drawPixel(ICON_X - 1, ICON_Y - 3, color);
+        display.drawPixel(ICON_X, ICON_Y - 3, color);
+        display.drawPixel(ICON_X + 1, ICON_Y - 3, color);
+        display.drawPixel(ICON_X + 2, ICON_Y - 2, color);
 
         // 3. Outer Arc (Radius = 5)
-        display.drawPixel(x - 4, y - 4, color);
-        display.drawPixel(x - 3, y - 5, color);
-        display.drawPixel(x - 2, y - 6, color);
-        display.drawPixel(x - 1, y - 6, color);
-        display.drawPixel(x, y - 6, color);
-        display.drawPixel(x + 1, y - 6, color);
-        display.drawPixel(x + 2, y - 6, color);
-        display.drawPixel(x + 3, y - 5, color);
-        display.drawPixel(x + 4, y - 4, color);
+        display.drawPixel(ICON_X - 4, ICON_Y - 4, color);
+        display.drawPixel(ICON_X - 3, ICON_Y - 5, color);
+        display.drawPixel(ICON_X - 2, ICON_Y - 6, color);
+        display.drawPixel(ICON_X - 1, ICON_Y - 6, color);
+        display.drawPixel(ICON_X, ICON_Y - 6, color);
+        display.drawPixel(ICON_X + 1, ICON_Y - 6, color);
+        display.drawPixel(ICON_X + 2, ICON_Y - 6, color);
+        display.drawPixel(ICON_X + 3, ICON_Y - 5, color);
     }
 }
 
