@@ -30,6 +30,21 @@ namespace
     int16_t screenShiftY = 0;
     String currentClock = "--:--:--";
     bool currentWifiConnected = false;
+    bool currentBluetoothConnected = false;
+
+    void drawBluetoothIcon(bool connected)
+    {
+        const int16_t iconX = 296 + screenShiftX;
+        const int16_t iconY = 13 + screenShiftY;
+        const uint16_t color = connected ? ST77XX_CYAN : ST77XX_RED;
+
+        display.fillRect(iconX - 5, iconY - 6, 11, 9, ST77XX_BLACK);
+        display.drawLine(iconX, iconY - 6, iconX, iconY + 2, color);
+        display.drawLine(iconX, iconY - 6, iconX + 4, iconY - 3, color);
+        display.drawLine(iconX + 4, iconY - 3, iconX - 4, iconY + 1, color);
+        display.drawLine(iconX - 4, iconY - 5, iconX + 4, iconY - 2, color);
+        display.drawLine(iconX + 4, iconY - 2, iconX, iconY + 2, color);
+    }
 
     void drawWifiIcon(bool connected)
     {
@@ -75,32 +90,32 @@ void DisplayController::begin()
     // Compact header and readings leave a 20-pixel edge margin.
     display.setTextColor(ST77XX_WHITE);
     display.setTextSize(NORMAL_FONT_SIZE);
-    display.setCursor(20, 20);
-    display.println("Air Quality Monitor");
+    display.setCursor(BASE_GRAPH_X, 20);
+    display.println("Air Quality");
     showStatus("--:--:--", false);
 
     // Static Value Labels (Color-coded to match graph curves)
     display.setTextSize(NORMAL_FONT_SIZE);
 
     display.setTextColor(ST77XX_CYAN);
-    display.setCursor(20, 36);
+    display.setCursor(BASE_GRAPH_X, 36);
     display.print("PM1.0:");
     display.setTextColor(ST77XX_WHITE);
-    display.setCursor(145, 36);
+    display.setCursor(161, 36);
     display.print("ug/m3");
 
     display.setTextColor(ST77XX_YELLOW);
-    display.setCursor(20, 50);
+    display.setCursor(BASE_GRAPH_X, 50);
     display.print("PM2.5:");
     display.setTextColor(ST77XX_WHITE);
-    display.setCursor(145, 50);
+    display.setCursor(161, 50);
     display.print("ug/m3");
 
     display.setTextColor(ST77XX_MAGENTA);
-    display.setCursor(20, 64);
-    display.print("PM10 :");
+    display.setCursor(BASE_GRAPH_X, 64);
+    display.print("PM10:");
     display.setTextColor(ST77XX_WHITE);
-    display.setCursor(145, 64);
+    display.setCursor(161, 64);
     display.print("ug/m3");
 
     // Initialize graph frame, scale, and grid
@@ -120,20 +135,20 @@ void DisplayController::update()
     needsRedraw = false;
 
     // Clear previous numbers and redraw top values
-    display.fillRect(100 + screenShiftX, 36 + screenShiftY, 45, 16, ST77XX_BLACK);
-    display.fillRect(100 + screenShiftX, 50 + screenShiftY, 45, 16, ST77XX_BLACK);
-    display.fillRect(100 + screenShiftX, 64 + screenShiftY, 45, 16, ST77XX_BLACK);
+    display.fillRect(116 + screenShiftX, 36 + screenShiftY, 45, 16, ST77XX_BLACK);
+    display.fillRect(116 + screenShiftX, 50 + screenShiftY, 45, 16, ST77XX_BLACK);
+    display.fillRect(116 + screenShiftX, 64 + screenShiftY, 45, 16, ST77XX_BLACK);
 
     display.setTextSize(NORMAL_FONT_SIZE);
     display.setTextColor(ST77XX_WHITE);
 
-    display.setCursor(100 + screenShiftX, 36 + screenShiftY);
+    display.setCursor(116 + screenShiftX, 36 + screenShiftY);
     display.print((int)(currentPM1 + 0.5f));
 
-    display.setCursor(100 + screenShiftX, 50 + screenShiftY);
+    display.setCursor(116 + screenShiftX, 50 + screenShiftY);
     display.print((int)(currentPM25 + 0.5f));
 
-    display.setCursor(100 + screenShiftX, 64 + screenShiftY);
+    display.setCursor(116 + screenShiftX, 64 + screenShiftY);
     display.print((int)(currentPM10 + 0.5f));
 
     // Redraw graph with latest history
@@ -151,15 +166,17 @@ void DisplayController::showPM(float pm1Concentration, float pm25Concentration, 
     needsRedraw = true;
 }
 
-void DisplayController::showStatus(const char *timeText, bool wifiConnected)
+void DisplayController::showStatus(const char *timeText, bool wifiConnected, bool bluetoothConnected)
 {
     currentClock = timeText;
     currentWifiConnected = wifiConnected;
-    display.fillRect(244 + screenShiftX, 14 + screenShiftY, 56, 12, ST77XX_BLACK);
+    currentBluetoothConnected = bluetoothConnected;
+    display.fillRect(234 + screenShiftX, 7 + screenShiftY, 81, 16, ST77XX_BLACK);
     display.setTextSize(SMALL_FONT_SIZE);
     display.setTextColor(ST77XX_WHITE);
-    display.setCursor(250 + screenShiftX, 17 + screenShiftY);
+    display.setCursor(240 + screenShiftX, 7 + screenShiftY);
     display.print(timeText);
+    drawBluetoothIcon(bluetoothConnected);
     drawWifiIcon(wifiConnected);
 }
 
@@ -171,33 +188,33 @@ void DisplayController::shiftScreen(int16_t x, int16_t y)
 
     display.setTextColor(ST77XX_WHITE);
     display.setTextSize(NORMAL_FONT_SIZE);
-    display.setCursor(20 + screenShiftX, 20 + screenShiftY);
-    display.println("Air Quality Monitor");
+    display.setCursor(BASE_GRAPH_X + screenShiftX, 20 + screenShiftY);
+    display.println("Air Quality");
 
     display.setTextSize(NORMAL_FONT_SIZE);
     display.setTextColor(ST77XX_CYAN);
-    display.setCursor(20 + screenShiftX, 36 + screenShiftY);
+    display.setCursor(BASE_GRAPH_X + screenShiftX, 36 + screenShiftY);
     display.print("PM1.0:");
     display.setTextColor(ST77XX_WHITE);
-    display.setCursor(145 + screenShiftX, 36 + screenShiftY);
+    display.setCursor(161 + screenShiftX, 36 + screenShiftY);
     display.print("ug/m3");
 
     display.setTextColor(ST77XX_YELLOW);
-    display.setCursor(20 + screenShiftX, 50 + screenShiftY);
+    display.setCursor(BASE_GRAPH_X + screenShiftX, 50 + screenShiftY);
     display.print("PM2.5:");
     display.setTextColor(ST77XX_WHITE);
-    display.setCursor(145 + screenShiftX, 50 + screenShiftY);
+    display.setCursor(161 + screenShiftX, 50 + screenShiftY);
     display.print("ug/m3");
 
     display.setTextColor(ST77XX_MAGENTA);
-    display.setCursor(20 + screenShiftX, 64 + screenShiftY);
-    display.print("PM10 :");
+    display.setCursor(BASE_GRAPH_X + screenShiftX, 64 + screenShiftY);
+    display.print("PM10:");
     display.setTextColor(ST77XX_WHITE);
-    display.setCursor(145 + screenShiftX, 64 + screenShiftY);
+    display.setCursor(161 + screenShiftX, 64 + screenShiftY);
     display.print("ug/m3");
 
     graph.setPosition(BASE_GRAPH_X + screenShiftX, BASE_GRAPH_Y + screenShiftY);
     graph.init(display);
-    showStatus(currentClock.c_str(), currentWifiConnected);
+    showStatus(currentClock.c_str(), currentWifiConnected, currentBluetoothConnected);
     needsRedraw = true;
 }

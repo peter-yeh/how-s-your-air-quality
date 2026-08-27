@@ -10,6 +10,7 @@ namespace
     constexpr char COMMAND_UUID[] = "4fa8691c-1360-4c27-ba5c-057245417c92";
     NimBLECharacteristic *dataCharacteristic = nullptr;
     StorageController *activeStorage = nullptr;
+    bool clientConnected = false;
 
     void sendChunk(const String &chunk, void *)
     {
@@ -49,6 +50,21 @@ namespace
             }
         }
     };
+
+    class ServerCallbacks : public NimBLEServerCallbacks
+    {
+    public:
+        void onConnect(NimBLEServer *, NimBLEConnInfo &) override
+        {
+            clientConnected = true;
+        }
+
+        void onDisconnect(NimBLEServer *, NimBLEConnInfo &, int) override
+        {
+            clientConnected = false;
+            NimBLEDevice::startAdvertising();
+        }
+    };
 }
 
 bool BleServer::begin(StorageController *storage)
@@ -56,6 +72,7 @@ bool BleServer::begin(StorageController *storage)
     activeStorage = storage;
     NimBLEDevice::init("AirQuality_ESP32");
     NimBLEServer *server = NimBLEDevice::createServer();
+    server->setCallbacks(new ServerCallbacks());
     NimBLEService *service = server->createService(SERVICE_UUID);
     dataCharacteristic = service->createCharacteristic(DATA_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
     NimBLECharacteristic *commandCharacteristic = service->createCharacteristic(COMMAND_UUID, NIMBLE_PROPERTY::WRITE);
@@ -69,6 +86,11 @@ bool BleServer::begin(StorageController *storage)
     advertising->start();
     Serial.println("BLE advertising as AirQuality_ESP32.");
     return true;
+}
+
+bool BleServer::connected() const
+{
+    return clientConnected;
 }
 
 void BleServer::updateReading(float pm1, float pm25, float pm10, const String &time)

@@ -52,7 +52,7 @@ void airQualityTask(void *pvParameters)
 
     if (millis() - lastStatusUpdate >= 1000)
     {
-      display.showStatus(wireless.clockTime().c_str(), wireless.connected());
+      display.showStatus(wireless.clockTime().c_str(), wireless.connected(), ble.connected());
       lastStatusUpdate = millis();
     }
 
