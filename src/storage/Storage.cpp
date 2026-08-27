@@ -124,6 +124,39 @@ bool StorageController::saveToCsv(const String &data)
     return written;
 }
 
+bool StorageController::saveReading(const Reading &reading)
+{
+    if (reading.time.length() == 0 || reading.time == "time unavailable" || reading.time == "--:--:--")
+    {
+        Serial.println("Cannot save CSV: reading has no valid time.");
+        return false;
+    }
+
+    String csvRow;
+    csvRow.reserve(128);
+    csvRow += reading.time;
+    csvRow += ",";
+    csvRow += String(reading.pm1, 2);
+    csvRow += ",";
+    csvRow += String(reading.pm25, 2);
+    csvRow += ",";
+    csvRow += String(reading.pm10, 2);
+    csvRow += ",";
+    csvRow += String(reading.c02, 2);
+    csvRow += ",";
+    csvRow += String(reading.humidity, 2);
+    csvRow += ",";
+    csvRow += String(reading.pressure, 2);
+    csvRow += ",";
+    csvRow += String(reading.altitude, 2);
+    csvRow += ",";
+    csvRow += String(reading.xCoord, 2);
+    csvRow += ",";
+    csvRow += String(reading.yCoord, 2);
+
+    return saveToCsv(csvRow);
+}
+
 bool StorageController::testReadWrite()
 {
     constexpr char TEST_FILE[] = "/sd_test.txt";

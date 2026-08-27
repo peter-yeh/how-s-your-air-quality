@@ -27,7 +27,7 @@ namespace
     void drawWifiIcon(bool connected)
     {
         constexpr int16_t ICON_X = 310;
-        constexpr int16_t ICON_Y = 10;
+        constexpr int16_t ICON_Y = 13;
         const uint16_t color = connected ? ST77XX_GREEN : ST77XX_RED;
 
         // Clear compact bounding box around (310, 10) - 11px wide, 9px high
@@ -145,10 +145,10 @@ void DisplayController::showPM(float pm1Concentration, float pm25Concentration, 
 
 void DisplayController::showStatus(const char *timeText, bool wifiConnected)
 {
-    display.fillRect(236, 0, 56, 20, ST77XX_BLACK);
+    display.fillRect(244, 0, 56, 20, ST77XX_BLACK);
     display.setTextSize(1);
     display.setTextColor(ST77XX_WHITE);
-    display.setCursor(238, 7);
+    display.setCursor(250, 7);
     display.print(timeText);
     drawWifiIcon(wifiConnected);
 }

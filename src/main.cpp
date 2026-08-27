@@ -8,7 +8,7 @@
 #include "wireless/Wireless.h"
 
 DisplayController display;
-// StorageController storage;
+StorageController storage;
 SensorController sensor;
 WirelessController wireless;
 
@@ -24,11 +24,22 @@ void airQualityTask(void *pvParameters)
 
     if (sensor.read(pm1, pm25, pm10))
     {
+      const String readingTime = wireless.currentTime();
       Serial.printf("[%s] PM1.0: %3d | PM2.5: %3d | PM10: %3d ug/m3\n",
-                    wireless.currentTime().c_str(),
+                    readingTime.c_str(),
                     (int)(pm1 + 0.5f),
                     (int)(pm25 + 0.5f),
                     (int)(pm10 + 0.5f));
+
+      if (readingTime != "time unavailable")
+      {
+        Reading reading;
+        reading.time = readingTime;
+        reading.pm1 = pm1;
+        reading.pm25 = pm25;
+        reading.pm10 = pm10;
+        storage.saveReading(reading);
+      }
 
       display.showPM(pm1, pm25, pm10);
     }
@@ -49,15 +60,15 @@ void setup()
   Serial.begin(115200);
   display.begin();
 
-  if (!wireless.begin("AnsonGarden", "66485973"))
+  if (!wireless.begin("AnsonGarden", "66485973", 8 * 60 * 60))
   {
     Serial.println("WARNING: Continuing without synchronized time.");
   }
 
-  // if (storage.begin())
-  // {
-  //   storage.testReadWrite();
-  // }
+  if (storage.begin())
+  {
+    storage.testReadWrite();
+  }
 
   Serial.println("\n--- BMV080 Initializing ---");
   while (!sensor.begin())
