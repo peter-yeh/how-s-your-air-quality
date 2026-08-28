@@ -9,35 +9,47 @@ namespace
     constexpr char DATA_UUID[] = "4fa8691b-1360-4c27-ba5c-057245417c92";
     constexpr char COMMAND_UUID[] = "4fa8691c-1360-4c27-ba5c-057245417c92";
     constexpr int MAX_TRANSMISSION_UNIT = 4096;
+    constexpr int TRANSMISSION_OVERHEAD = 3;
+    constexpr unsigned long ACK_TIMEOUT_MS = 10000;
+
     NimBLECharacteristic *dataCharacteristic = nullptr;
     StorageController *activeStorage = nullptr;
     bool clientConnected = false;
-    volatile bool ackReceived = false;             // Flow control: wait for client ACK
-    constexpr unsigned long ACK_TIMEOUT_MS = 5000; // 5 second timeout for ACK
+    volatile bool ackReceived = false;
 
-    void sendPackage(const String &chunk)
+    void sendChunk(const String &chunk)
     {
-        Serial.printf("[sendPackage] Preparing to send %u bytes\n", chunk.length());
         dataCharacteristic->setValue(chunk.c_str());
         ackReceived = false;
         const bool ok = dataCharacteristic->notify();
 
         if (ok)
         {
-            Serial.printf("[sendPackage] Successfully sent %u bytes, waiting for ACK...\n", chunk.length());
+            Serial.printf("[sendChunk] Sent %u bytes, waiting for ACK...\n", chunk.length());
             unsigned long startTime = millis();
             while (!ackReceived && (millis() - startTime) < ACK_TIMEOUT_MS)
-                delay(10); // Yield to other tasks
+                delay(1000);
 
             if (ackReceived)
-                Serial.printf("[sendPackage] ACK received for %u bytes\n", chunk.length());
+                Serial.printf("[sendChunk] ACK received for %u bytes\n", chunk.length());
             else
-                Serial.printf("[sendPackage] ERROR: ACK timeout for %u bytes!\n", chunk.length());
+                Serial.printf("[sendChunk] ERROR: ACK timeout for %u bytes!\n", chunk.length());
         }
         else
         {
-            Serial.printf("[sendPackage] ERROR: Failed to notify %u bytes!\n", chunk.length());
+            Serial.printf("[sendChunk] ERROR: Failed to notify %u bytes!\n", chunk.length());
             return;
+        }
+    }
+
+    void sendPackage(const String &package)
+    {
+
+        for (int i = 0; i < package.length(); i += MAX_TRANSMISSION_UNIT - TRANSMISSION_OVERHEAD)
+        {
+            int len = min(MAX_TRANSMISSION_UNIT - TRANSMISSION_OVERHEAD, (int)package.length() - i);
+            String chunk = package.substring(i, i + len);
+            sendChunk(chunk);
         }
     }
 
@@ -52,19 +64,18 @@ namespace
             if (command == "ACK")
             {
                 ackReceived = true;
-                Serial.println("[CommandCallbacks] ACK received");
             }
             else if (command.startsWith("GET:"))
             {
                 int value = command.substring(4).toInt(); // "GET:" is 4 characters
-                Serial.printf("[CommandCallbacks] GET command received, value: %d\n", value);
+                Serial.printf("[CommandCallbacks] GET command received, generating: %d * 10 bytes\n", value);
                 String data = "\x01";
 
                 for (int i = 0; i < value; i++) // value * 10 = total bytes
                     data += "0123456789";
 
                 sendPackage(data + "\x02");
-                Serial.printf("[CommandCallbacks] Generated: %u bytes\n", data.length());
+                Serial.printf("[CommandCallbacks] Sent: %u bytes\n", data.length());
             }
         }
     };

@@ -9,16 +9,14 @@ function setStatus(message) { $('status').textContent = message; }
 function handleData(event) {
     try {
         const chunk = new TextDecoder().decode(event.target.value);
-        const now = new Date();
-        const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
 
-        console.log(`[${time} handleData] received ${chunk.length} bytes: "${chunk}"`);
+        console.log(`[handleData] received ${chunk.length} bytes: "${chunk}"`);
 
         commandCharacteristic.writeValue(new TextEncoder().encode('ACK'));
 
 
         if (chunk.includes('\x01') && chunk.includes('\x02')) {
-            console.log(`[${time} handleData] received : ${chunk} bytes`);
+            console.log(`[handleData] received : ${chunk} bytes`);
         }
 
 
@@ -90,9 +88,9 @@ function drawGraph(csv) {
 $('GetData').onclick = async () => {
     try {
         if (!commandCharacteristic) throw new Error('Not connected to ESP32');
+        console.log('[GetData] GET command sent');
 
         await commandCharacteristic.writeValue(new TextEncoder().encode('GET:50'));
-        console.log('[GetData] GET command sent');
 
     } catch (error) {
         console.error('[GetData] Error:', error);
@@ -110,17 +108,13 @@ $('ConnectESP32').onclick = async () => {
 
         dataCharacteristic = await service.getCharacteristic(dataUuid);
         commandCharacteristic = await service.getCharacteristic(commandUuid);
-        console.log('[ConnectESP32] Characteristics obtained');
 
         // Remove any existing listeners
         dataCharacteristic.removeEventListener('characteristicvaluechanged', handleData);
 
         // Start notifications and attach listener
         await dataCharacteristic.startNotifications();
-        console.log('[ConnectESP32] Notifications started');
-
         dataCharacteristic.addEventListener('characteristicvaluechanged', handleData);
-        console.log('[ConnectESP32] Event listener attached');
 
         setStatus(`Connected to ${device.name || 'ESP32'}`);
         console.info('[ConnectESP32] Connected to Bluetooth device.');
