@@ -9,36 +9,19 @@ function setStatus(message) { $('status').textContent = message; }
 function handleData(event) {
     try {
         const chunk = new TextDecoder().decode(event.target.value);
-        chunkCount++;
-        console.log(`[Chunk ${chunkCount}] Received ${chunk.length} bytes: "${chunk.substring(0, 50)}${chunk.length > 50 ? '...' : ''}"`);
-        transfer += chunk;
+        const now = new Date();
+        const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
 
-        // Send acknowledgment to backend to enable flow control
+        console.log(`[${time} handleData] received ${chunk.length} bytes: "${chunk}"`);
+
         commandCharacteristic.writeValue(new TextEncoder().encode('ACK'));
 
-        // Show real-time progress
-        const totalBytes = transfer.length;
-        console.log(`[Progress] Total received: ${totalBytes} bytes in ${chunkCount} chunks`);
 
-        if (transfer.includes('BEGIN LIST\n') && transfer.includes('END LIST\n')) {
-            const files = transfer.split('BEGIN LIST\n')[1].split('END LIST\n')[0].split(/\r?\n/).filter(Boolean);
-            console.log(`[Complete] File list received: ${files.length} files, ${totalBytes} bytes`);
-            renderFileList(files);
-            chunkCount = 0;
-            transfer = '';
-        } else if (transfer.includes('BEGIN CSV\n') && transfer.includes('END CSV\n')) {
-            const csv = transfer.split('BEGIN CSV\n')[1].split('END CSV\n')[0];
-            const rows = csv.trim().split(/\r?\n/).filter(Boolean).length;
-            console.log(`[Complete] CSV file received: ${rows} rows, ${totalBytes} bytes, ${chunkCount} chunks`);
-            setStatus(`Received: ${totalBytes} bytes in ${chunkCount} chunks (${rows} data rows)`);
-            transfer = '';
-            chunkCount = 0;
-            if (!csv.startsWith('ERROR FILE')) drawGraph(csv);
-            else setStatus('Could not open that CSV file');
-        } else if (transfer.includes('BEGIN')) {
-            // Transfer in progress, show live status
-            setStatus(`Receiving... ${totalBytes} bytes in ${chunkCount} chunks`);
+        if (chunk.includes('\x01') && chunk.includes('\x02')) {
+            console.log(`[${time} handleData] received : ${chunk} bytes`);
         }
+
+
     } catch (e) {
         console.error('[handleData] Error processing chunk:', e);
     }
@@ -104,43 +87,47 @@ function drawGraph(csv) {
     setStatus(`CSV loaded: ${points.length} reading(s)`);
 }
 
-$('connect').onclick = async () => {
+$('GetData').onclick = async () => {
     try {
-        console.info('Connecting to Bluetooth device...');
+        if (!commandCharacteristic) throw new Error('Not connected to ESP32');
+
+        await commandCharacteristic.writeValue(new TextEncoder().encode('GET:50'));
+        console.log('[GetData] GET command sent');
+
+    } catch (error) {
+        console.error('[GetData] Error:', error);
+        setStatus("Encountered error sending GET command: " + error.message);
+    }
+};
+
+$('ConnectESP32').onclick = async () => {
+    try {
+        console.info('[ConnectESP32] Connecting to Bluetooth device...');
         if (!navigator.bluetooth) throw new Error('Web Bluetooth is unavailable. Use Chrome or Edge over HTTPS.');
         const device = await navigator.bluetooth.requestDevice({ filters: [{ services: [serviceUuid] }] });
-        console.log('[Connection] Device selected:', device.name);
-
         const server = await device.gatt.connect();
-        console.log('[Connection] GATT server connected');
-
         const service = await server.getPrimaryService(serviceUuid);
-        console.log('[Connection] Service found');
 
         dataCharacteristic = await service.getCharacteristic(dataUuid);
         commandCharacteristic = await service.getCharacteristic(commandUuid);
-        console.log('[Connection] Characteristics obtained');
+        console.log('[ConnectESP32] Characteristics obtained');
 
         // Remove any existing listeners
         dataCharacteristic.removeEventListener('characteristicvaluechanged', handleData);
 
         // Start notifications and attach listener
         await dataCharacteristic.startNotifications();
-        console.log('[Connection] Notifications started');
+        console.log('[ConnectESP32] Notifications started');
 
         dataCharacteristic.addEventListener('characteristicvaluechanged', handleData);
-        console.log('[Connection] Event listener attached');
+        console.log('[ConnectESP32] Event listener attached');
 
         setStatus(`Connected to ${device.name || 'ESP32'}`);
-        console.info('Connected to Bluetooth device.');
+        console.info('[ConnectESP32] Connected to Bluetooth device.');
 
-        // Send LIST command
-        console.log('[Connection] Sending LIST command...');
-        await commandCharacteristic.writeValue(new TextEncoder().encode('LIST'));
-        console.log('[Connection] LIST command sent');
 
     } catch (error) {
-        console.error('[Connection] Error:', error);
+        console.error('[ConnectESP32] Error:', error);
         setStatus("Encountered error connecting: " + error.message);
     }
 };

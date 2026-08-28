@@ -8,44 +8,36 @@ namespace
     constexpr char SERVICE_UUID[] = "4fa8691a-1360-4c27-ba5c-057245417c92";
     constexpr char DATA_UUID[] = "4fa8691b-1360-4c27-ba5c-057245417c92";
     constexpr char COMMAND_UUID[] = "4fa8691c-1360-4c27-ba5c-057245417c92";
+    constexpr int MAX_TRANSMISSION_UNIT = 4096;
     NimBLECharacteristic *dataCharacteristic = nullptr;
     StorageController *activeStorage = nullptr;
     bool clientConnected = false;
     volatile bool ackReceived = false;             // Flow control: wait for client ACK
     constexpr unsigned long ACK_TIMEOUT_MS = 5000; // 5 second timeout for ACK
 
-    // Pushes one chunk to the frontend by notifying dataCharacteristic.
-    // Uses flow control: waits for ACK from client before returning.
-    void sendChunk(const String &chunk)
+    void sendPackage(const String &chunk)
     {
-        Serial.printf("[sendChunk] Preparing to send %u bytes\n", chunk.length());
-        ackReceived = false; // Reset ACK flag
+        Serial.printf("[sendPackage] Preparing to send %u bytes\n", chunk.length());
         dataCharacteristic->setValue(chunk.c_str());
+        ackReceived = false;
         const bool ok = dataCharacteristic->notify();
+
         if (ok)
         {
-            Serial.printf("[sendChunk] Successfully sent %u bytes, waiting for ACK...\n", chunk.length());
+            Serial.printf("[sendPackage] Successfully sent %u bytes, waiting for ACK...\n", chunk.length());
+            unsigned long startTime = millis();
+            while (!ackReceived && (millis() - startTime) < ACK_TIMEOUT_MS)
+                delay(10); // Yield to other tasks
+
+            if (ackReceived)
+                Serial.printf("[sendPackage] ACK received for %u bytes\n", chunk.length());
+            else
+                Serial.printf("[sendPackage] ERROR: ACK timeout for %u bytes!\n", chunk.length());
         }
         else
         {
-            Serial.printf("[sendChunk] ERROR: Failed to notify %u bytes!\n", chunk.length());
+            Serial.printf("[sendPackage] ERROR: Failed to notify %u bytes!\n", chunk.length());
             return;
-        }
-
-        // Wait for ACK from client (with timeout)
-        unsigned long startTime = millis();
-        while (!ackReceived && (millis() - startTime < ACK_TIMEOUT_MS))
-        {
-            delay(5); // Small delay to prevent busy-waiting
-        }
-
-        if (ackReceived)
-        {
-            Serial.printf("[sendChunk] ACK received for %u bytes\n", chunk.length());
-        }
-        else
-        {
-            Serial.printf("[sendChunk] WARNING: No ACK received for %u bytes (timeout)\n", chunk.length());
         }
     }
 
@@ -55,54 +47,24 @@ namespace
         void onWrite(NimBLECharacteristic *characteristic, NimBLEConnInfo &) override
         {
             const String command = characteristic->getValue().c_str();
-            Serial.printf("BLE command received: %s\n", command.c_str());
+            Serial.printf("[CommandCallbacks] command received: %s\n", command.c_str());
 
             if (command == "ACK")
             {
-                Serial.println("[ACK] Acknowledgment received from client");
                 ackReceived = true;
-                return;
-            }
-
-            if (command.startsWith("CLIENT_NAME:"))
-            {
-                Serial.printf("BLE client name: %s\n", command.substring(12).c_str());
-                return;
-            }
-            if (command == "LIST")
-            {
-                Serial.println("[LIST] Starting LIST command processing");
-                String files;
-                if (!activeStorage || !activeStorage->listAllFiles(files))
-                {
-                    Serial.println("[LIST] ERROR: listAllFiles() failed or storage unavailable.");
-                }
-                Serial.printf("[LIST] Retrieved file list: %u bytes\n", files.length());
-                Serial.println("[LIST] Sending LIST response...");
-                sendChunk("BEGIN LIST\n" + files + "END LIST\n");
-                Serial.println("[LIST] Response complete");
+                Serial.println("[CommandCallbacks] ACK received");
             }
             else if (command.startsWith("GET:"))
             {
-                const String path = command.substring(4);
-                Serial.printf("[GET] Starting GET command for path: %s\n", path.c_str());
-                Serial.println("[GET] Sending CSV header...");
-                sendChunk("BEGIN CSV\n");
-                // Only the most recent readings are sent: BLE bandwidth and graph readability don't scale to entire logs.
-                Serial.println("[GET] Streaming up to 300 recent lines...");
-                const bool sent = activeStorage && activeStorage->streamRecentLines(path, 300, sendChunk);
-                if (!sent)
-                {
-                    Serial.println("[GET] ERROR: Failed to stream file data");
-                    sendChunk("ERROR FILE\n");
-                }
-                else
-                {
-                    Serial.println("[GET] Successfully streamed file data");
-                }
-                Serial.println("[GET] Sending CSV footer...");
-                sendChunk("END CSV\n");
-                Serial.println("[GET] Response complete");
+                int value = command.substring(4).toInt(); // "GET:" is 4 characters
+                Serial.printf("[CommandCallbacks] GET command received, value: %d\n", value);
+                String data = "\x01";
+
+                for (int i = 0; i < value; i++) // value * 10 = total bytes
+                    data += "0123456789";
+
+                sendPackage(data + "\x02");
+                Serial.printf("[CommandCallbacks] Generated: %u bytes\n", data.length());
             }
         }
     };
@@ -130,7 +92,7 @@ bool BleServer::begin(StorageController *storage)
     activeStorage = storage;
 
     NimBLEDevice::init("Air Quality Monitor");
-    NimBLEDevice::setMTU(247);
+    NimBLEDevice::setMTU(MAX_TRANSMISSION_UNIT);
     NimBLEServer *server = NimBLEDevice::createServer();
     server->setCallbacks(new ServerCallbacks());
     NimBLEService *service = server->createService(SERVICE_UUID);
