@@ -10,7 +10,7 @@ namespace
     constexpr char COMMAND_UUID[] = "4fa8691c-1360-4c27-ba5c-057245417c92";
     constexpr int MAX_TRANSMISSION_UNIT = 4096;
     constexpr int TRANSMISSION_OVERHEAD = 3;
-    constexpr unsigned long ACK_TIMEOUT_MS = 10000;
+    constexpr unsigned long ACK_TIMEOUT_MS = 15000;
 
     NimBLECharacteristic *dataCharacteristic = nullptr;
     StorageController *activeStorage = nullptr;
@@ -44,11 +44,12 @@ namespace
 
     void sendPackage(const String &package)
     {
+        int packageLength = package.length();
 
-        for (int i = 0; i < package.length(); i += MAX_TRANSMISSION_UNIT - TRANSMISSION_OVERHEAD)
+        for (int i = 0; i < packageLength; i += MAX_TRANSMISSION_UNIT - TRANSMISSION_OVERHEAD)
         {
-            int len = min(MAX_TRANSMISSION_UNIT - TRANSMISSION_OVERHEAD, (int)package.length() - i);
-            String chunk = package.substring(i, i + len);
+            int len = min(MAX_TRANSMISSION_UNIT - TRANSMISSION_OVERHEAD, packageLength - i);
+            String chunk = package.substring(i, i + len + 1);
             sendChunk(chunk);
         }
     }
@@ -68,11 +69,11 @@ namespace
             else if (command.startsWith("GET:"))
             {
                 int value = command.substring(4).toInt(); // "GET:" is 4 characters
-                Serial.printf("[CommandCallbacks] GET command received, generating: %d * 10 bytes\n", value);
+                Serial.printf("[CommandCallbacks] GET command received, generating: %d bytes\n", value);
                 String data = "\x01";
 
-                for (int i = 0; i < value; i++) // value * 10 = total bytes
-                    data += "0123456789";
+                for (int i = 0; i < value; i++)
+                    data += "A";
 
                 sendPackage(data + "\x02");
                 Serial.printf("[CommandCallbacks] Sent: %u bytes\n", data.length());
