@@ -115,7 +115,7 @@ $('ConnectESP32').onclick = async () => {
         console.info('[ConnectESP32] Connected to Bluetooth device.');
 
         console.log('[GetData] GET command sent');
-        await commandCharacteristic.writeValue(new TextEncoder().encode('GET:1000'));
+        await commandCharacteristic.writeValue(new TextEncoder().encode('GET:5000'));
 
 
     } catch (error) {
