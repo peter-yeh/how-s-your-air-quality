@@ -17,30 +17,34 @@ namespace
     StorageController *activeStorage = nullptr;
     bool clientConnected = false;
 
-    void sendChunk(const String &chunk)
+    bool sendChunk(const String &chunk)
     {
         dataCharacteristic->setValue(chunk.c_str());
-        // const bool ok = dataCharacteristic->notify(reinterpret_cast<const uint8_t *>(chunk.c_str()), chunk.length());
-
         bool chunkQueued = dataCharacteristic->notify(reinterpret_cast<const uint8_t *>(chunk.c_str()), chunk.length());
-        while (!chunkQueued)
-        {
-            Serial.printf("[sendChunk] Failed to notify %u bytes! Sending again...\n", chunk.length());
-            chunkQueued = dataCharacteristic->notify(reinterpret_cast<const uint8_t *>(chunk.c_str()), chunk.length());
-            vTaskDelay(pdMS_TO_TICKS(1000));
-        }
-        Serial.printf("[sendChunk] Sent %u bytes...\n", chunk.length());
+        if (chunkQueued)
+            Serial.printf("[sendChunk] Sent %u bytes...\n", chunk.length());
+        else
+            Serial.printf("[sendChunk] Failed to send %u bytes!\n", chunk.length());
+
+        return chunkQueued;
     }
 
     void sendPackage(const String &package)
     {
         int packageLength = package.length();
+        bool chunkSent = false;
 
         for (int i = 0; i < packageLength; i += MAX_CHUNK_SIZE)
         {
             int len = min(MAX_CHUNK_SIZE, packageLength - i);
             String chunk = package.substring(i, i + len);
-            sendChunk(chunk);
+            chunkSent = sendChunk(chunk);
+
+            while (!chunkSent)
+            {
+                vTaskDelay(pdMS_TO_TICKS(1000));
+                chunkSent = sendChunk(chunk);
+            }
         }
     }
 

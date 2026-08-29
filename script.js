@@ -85,7 +85,7 @@ $('GetData').onclick = async () => {
     try {
         if (!commandCharacteristic) throw new Error('Not connected to ESP32');
         console.log('[GetData] GET command sent');
-        await commandCharacteristic.writeValue(new TextEncoder().encode('GET:1000'));
+        await commandCharacteristic.writeValue(new TextEncoder().encode('GET:5000'));
 
     } catch (error) {
         console.error('[GetData] Error:', error);
