@@ -12,7 +12,7 @@ namespace
     constexpr char DATA_UUID[] = "4fa8691b-1360-4c27-ba5c-057245417c92";
     constexpr char COMMAND_UUID[] = "4fa8691c-1360-4c27-ba5c-057245417c92";
     constexpr int MAX_CHUNK_SIZE = 244; // 244 + 3 (ATT header) + 4 (L2CAP header) = 251 (Max for link layer packet)
-    constexpr unsigned long ACK_TIMEOUT_MS = 30000;
+    constexpr unsigned long ACK_TIMEOUT_MS = 5000;
 
     NimBLECharacteristic *dataCharacteristic = nullptr;
     StorageController *activeStorage = nullptr;
@@ -30,7 +30,7 @@ namespace
             Serial.printf("[sendChunk] Sent %u bytes, waiting for ACK...\n", chunk.length());
             unsigned long startTime = millis();
             while (!ackReceived && (millis() - startTime) < ACK_TIMEOUT_MS)
-                delay(100);
+                delay(10);
 
             if (ackReceived)
                 Serial.printf("[sendChunk] ACK received for %u bytes\n", chunk.length());
@@ -51,7 +51,7 @@ namespace
         for (int i = 0; i < packageLength; i += MAX_CHUNK_SIZE)
         {
             int len = min(MAX_CHUNK_SIZE, packageLength - i);
-            String chunk = package.substring(i, i + len + 1);
+            String chunk = package.substring(i, i + len);
             sendChunk(chunk);
         }
     }

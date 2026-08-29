@@ -8,10 +8,10 @@ function setStatus(message) { $('status').textContent = message; }
 
 function handleData(event) {
     try {
+        console.log(`[handleData] Event received with ${event.target.value.byteLength} bytes`);
         const chunk = new TextDecoder().decode(event.target.value);
 
-        console.log(`[handleData] received ${chunk.length} bytes: "${chunk}"`);
-
+        console.log(`[handleData] received ${chunk.length} bytes: ${chunk}, sending ack`);
         commandCharacteristic.writeValue(new TextEncoder().encode('ACK'));
 
 
@@ -119,7 +119,7 @@ $('ConnectESP32').onclick = async () => {
         console.info('[ConnectESP32] Connected to Bluetooth device.');
 
         console.log('[GetData] GET command sent');
-        await commandCharacteristic.writeValue(new TextEncoder().encode('GET:244'));
+        await commandCharacteristic.writeValue(new TextEncoder().encode('GET:100'));
 
 
     } catch (error) {
