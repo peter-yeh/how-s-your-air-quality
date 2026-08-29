@@ -85,7 +85,7 @@ $('GetData').onclick = async () => {
     try {
         if (!commandCharacteristic) throw new Error('Not connected to ESP32');
         console.log('[GetData] GET command sent');
-        await commandCharacteristic.writeValue(new TextEncoder().encode('GET:500'));
+        await commandCharacteristic.writeValue(new TextEncoder().encode('GET:1000'));
 
     } catch (error) {
         console.error('[GetData] Error:', error);
@@ -115,7 +115,7 @@ $('ConnectESP32').onclick = async () => {
         console.info('[ConnectESP32] Connected to Bluetooth device.');
 
         console.log('[GetData] GET command sent');
-        await commandCharacteristic.writeValue(new TextEncoder().encode('GET:300'));
+        await commandCharacteristic.writeValue(new TextEncoder().encode('GET:1000'));
 
 
     } catch (error) {

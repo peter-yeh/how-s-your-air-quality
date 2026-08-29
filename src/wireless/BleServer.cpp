@@ -20,7 +20,7 @@ namespace
     bool sendChunk(const String &chunk)
     {
         dataCharacteristic->setValue(chunk.c_str());
-        const bool ok = dataCharacteristic->notify();
+        const bool ok = dataCharacteristic->notify(reinterpret_cast<const uint8_t *>(chunk.c_str()), chunk.length());
 
         if (!ok)
         {
@@ -29,7 +29,6 @@ namespace
         }
 
         Serial.printf("[sendChunk] Sent %u bytes...\n", chunk.length());
-        vTaskDelay(pdMS_TO_TICKS(5000));
         return true;
     }
 
@@ -64,7 +63,8 @@ namespace
                 for (int i = 0; i < value; i++)
                     data += "A";
 
-                sendPackage(data + "\x02");
+                data += "\x02";
+                sendPackage(data);
                 Serial.printf("[CommandCallbacks] Sent: %u bytes\n", data.length());
             }
         }
