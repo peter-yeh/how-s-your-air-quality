@@ -99,7 +99,7 @@ $('GetData').onclick = async () => {
 
 $('ConnectESP32').onclick = async () => {
     try {
-        console.info('[ConnectESP32] Connecting to Bluetooth device...');
+        console.info('[ConnectESP32] Connecting to Bluetooth device...please select a device');
         if (!navigator.bluetooth) throw new Error('Web Bluetooth is unavailable. Use Chrome or Edge over HTTPS.');
         const device = await navigator.bluetooth.requestDevice({ filters: [{ services: [serviceUuid] }] });
         const server = await device.gatt.connect();
@@ -119,7 +119,7 @@ $('ConnectESP32').onclick = async () => {
         console.info('[ConnectESP32] Connected to Bluetooth device.');
 
         console.log('[GetData] GET command sent');
-        await commandCharacteristic.writeValue(new TextEncoder().encode('GET:500'));
+        await commandCharacteristic.writeValue(new TextEncoder().encode('GET:244'));
 
 
     } catch (error) {
