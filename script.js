@@ -6,22 +6,18 @@ const $ = id => document.getElementById(id);
 
 function setStatus(message) { $('status').textContent = message; }
 
-function handleData(event) {
+function receivedData(event) {
     try {
-        console.log(`[handleData] Event received with ${event.target.value.byteLength} bytes`);
+        console.log(`[receivedData] Event received with ${event.target.value.byteLength} bytes`);
         const chunk = new TextDecoder().decode(event.target.value);
 
-        console.log(`[handleData] received ${chunk.length} bytes: ${chunk}, sending ack`);
-        commandCharacteristic.writeValue(new TextEncoder().encode('ACK'));
-
-
-        if (chunk.includes('\x01') && chunk.includes('\x02')) {
-            console.log(`[handleData] received : ${chunk} bytes`);
-        }
+        // if (chunk.includes('\x01') && chunk.includes('\x02')) {
+        //     console.log(`[receivedData] received : ${chunk} bytes`);
+        // }
 
 
     } catch (e) {
-        console.error('[handleData] Error processing chunk:', e);
+        console.error('[receivedData] Error processing chunk:', e);
     }
 }
 
@@ -109,17 +105,17 @@ $('ConnectESP32').onclick = async () => {
         commandCharacteristic = await service.getCharacteristic(commandUuid);
 
         // Remove any existing listeners
-        dataCharacteristic.removeEventListener('characteristicvaluechanged', handleData);
+        dataCharacteristic.removeEventListener('characteristicvaluechanged', receivedData);
 
         // Start notifications and attach listener
         await dataCharacteristic.startNotifications();
-        dataCharacteristic.addEventListener('characteristicvaluechanged', handleData);
+        dataCharacteristic.addEventListener('characteristicvaluechanged', receivedData);
 
         setStatus(`Connected to ${device.name || 'ESP32'}`);
         console.info('[ConnectESP32] Connected to Bluetooth device.');
 
         console.log('[GetData] GET command sent');
-        await commandCharacteristic.writeValue(new TextEncoder().encode('GET:100'));
+        await commandCharacteristic.writeValue(new TextEncoder().encode('GET:300'));
 
 
     } catch (error) {
@@ -127,3 +123,4 @@ $('ConnectESP32').onclick = async () => {
         setStatus("Encountered error connecting: " + error.message);
     }
 };
+

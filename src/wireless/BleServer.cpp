@@ -12,36 +12,25 @@ namespace
     constexpr char DATA_UUID[] = "4fa8691b-1360-4c27-ba5c-057245417c92";
     constexpr char COMMAND_UUID[] = "4fa8691c-1360-4c27-ba5c-057245417c92";
     constexpr int MAX_CHUNK_SIZE = 244; // 244 + 3 (ATT header) + 4 (L2CAP header) = 251 (Max for link layer packet)
-    constexpr unsigned long ACK_TIMEOUT_MS = 5000;
 
     NimBLECharacteristic *dataCharacteristic = nullptr;
     StorageController *activeStorage = nullptr;
     bool clientConnected = false;
-    volatile bool ackReceived = false;
 
-    void sendChunk(const String &chunk)
+    bool sendChunk(const String &chunk)
     {
         dataCharacteristic->setValue(chunk.c_str());
-        ackReceived = false;
         const bool ok = dataCharacteristic->notify();
 
-        if (ok)
-        {
-            Serial.printf("[sendChunk] Sent %u bytes, waiting for ACK...\n", chunk.length());
-            unsigned long startTime = millis();
-            while (!ackReceived && (millis() - startTime) < ACK_TIMEOUT_MS)
-                delay(10);
-
-            if (ackReceived)
-                Serial.printf("[sendChunk] ACK received for %u bytes\n", chunk.length());
-            else
-                Serial.printf("[sendChunk] ERROR: ACK timeout for %u bytes!\n", chunk.length());
-        }
-        else
+        if (!ok)
         {
             Serial.printf("[sendChunk] ERROR: Failed to notify %u bytes!\n", chunk.length());
-            return;
+            return false;
         }
+
+        Serial.printf("[sendChunk] Sent %u bytes, waiting for ACK...\n", chunk.length());
+        vTaskDelay(pdMS_TO_TICKS(5000));
+        return true;
     }
 
     void sendPackage(const String &package)
@@ -52,7 +41,9 @@ namespace
         {
             int len = min(MAX_CHUNK_SIZE, packageLength - i);
             String chunk = package.substring(i, i + len);
-            sendChunk(chunk);
+            for (int j = 0; j < 3; j++) // retry mechanism
+                if (sendChunk(chunk))
+                    break;
         }
     }
 
@@ -64,11 +55,7 @@ namespace
             const String command = characteristic->getValue().c_str();
             Serial.printf("[CommandCallbacks] command received: %s\n", command.c_str());
 
-            if (command == "ACK")
-            {
-                ackReceived = true;
-            }
-            else if (command.startsWith("GET:"))
+            if (command.startsWith("GET:"))
             {
                 int value = command.substring(4).toInt(); // "GET:" is 4 characters
                 Serial.printf("[CommandCallbacks] GET command received, generating: %d bytes\n", value);
