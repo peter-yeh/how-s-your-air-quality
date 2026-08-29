@@ -28,7 +28,7 @@ namespace
             return false;
         }
 
-        Serial.printf("[sendChunk] Sent %u bytes, waiting for ACK...\n", chunk.length());
+        Serial.printf("[sendChunk] Sent %u bytes...\n", chunk.length());
         vTaskDelay(pdMS_TO_TICKS(5000));
         return true;
     }
