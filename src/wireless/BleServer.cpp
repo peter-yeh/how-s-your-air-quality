@@ -40,11 +40,11 @@ namespace
             String chunk = package.substring(i, i + len);
             chunkSent = sendChunk(chunk);
 
-            while (!chunkSent)
-            {
-                vTaskDelay(pdMS_TO_TICKS(1000));
-                chunkSent = sendChunk(chunk);
-            }
+            // while (!chunkSent)
+            // {
+            //     vTaskDelay(pdMS_TO_TICKS(1000));
+            //     chunkSent = sendChunk(chunk);
+            // }
         }
     }
 

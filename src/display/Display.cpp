@@ -151,15 +151,7 @@ void DisplayController::update()
     display.setCursor(116 + screenShiftX, 77 + screenShiftY);
     display.print((int)(currentPM10 + 0.5f));
 
-    if (graphUpdatesEnabled)
-    {
-        graph.draw(display);
-    }
-}
-
-void DisplayController::setGraphUpdatesEnabled(bool enabled)
-{
-    graphUpdatesEnabled = enabled;
+    graph.draw(display);
 }
 
 void DisplayController::showPM(float pm1Concentration, float pm25Concentration, float pm10Concentration)
@@ -168,10 +160,7 @@ void DisplayController::showPM(float pm1Concentration, float pm25Concentration, 
     currentPM25 = pm25Concentration;
     currentPM10 = pm10Concentration;
 
-    if (graphUpdatesEnabled)
-    {
-        graph.addSample(currentPM1, currentPM25, currentPM10);
-    }
+    graph.addSample(currentPM1, currentPM25, currentPM10);
     needsRedraw = true;
 }
 
