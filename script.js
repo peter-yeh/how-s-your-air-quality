@@ -6,6 +6,12 @@ const $ = id => document.getElementById(id);
 
 function setStatus(message) { $('status').textContent = message; }
 
+function formatFileSize(bytes) {
+    if (bytes === null || bytes === undefined || isNaN(bytes)) return '';
+    const mb = Number(bytes) / (1024 * 1024);
+    return `${mb.toFixed(2)} MB`;
+}
+
 function receivedData(event) {
     try {
         console.log(`[receivedData] Event received with ${event.target.value.byteLength} bytes`);
@@ -29,12 +35,20 @@ function receivedData(event) {
 
             const payload = transfer.trim();
             const entries = payload.split('\n').map(s => s.trim()).filter(Boolean);
-            const isFileList = transferType === 'list' || (transferType !== 'file' && entries.length > 0 && entries.every(s => s.toLowerCase().endsWith('.csv')));
+            const parsedFiles = entries.map(entry => {
+                const parts = entry.split('|');
+                return {
+                    name: parts[0].trim(),
+                    size: parts.length > 1 ? parseInt(parts[1].trim(), 10) : null
+                };
+            }).filter(f => f.name.toLowerCase().endsWith('.csv'));
+
+            const isFileList = transferType === 'list' || (transferType !== 'file' && parsedFiles.length > 0);
 
             if (isFileList) {
-                console.log(`[receivedData] File list received: ${entries.join(', ')}`);
-                renderFileList(entries);
-                setStatus(`Found ${entries.length} CSV file(s)`);
+                console.log(`[receivedData] File list received:`, parsedFiles);
+                renderFileList(parsedFiles);
+                setStatus(`Found ${parsedFiles.length} CSV file(s)`);
             } else {
                 // Treat as CSV file content
                 console.log('[receivedData] CSV content received, drawing graph');
@@ -54,12 +68,27 @@ function receivedData(event) {
 
 function renderFileList(files) {
     $('fileList').innerHTML = '';
-    for (const name of files) {
+    for (const file of files) {
+        const filePath = typeof file === 'string' ? file : file.name;
+        const fileSize = typeof file === 'object' && file.size !== null ? formatFileSize(file.size) : '';
+
         const li = document.createElement('li');
         const button = document.createElement('button');
         button.className = 'button-list';
-        button.textContent = name;
-        button.onclick = () => openFile(name);
+        button.onclick = () => openFile(filePath);
+
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'file-name';
+        nameSpan.textContent = filePath;
+        button.appendChild(nameSpan);
+
+        if (fileSize) {
+            const sizeSpan = document.createElement('span');
+            sizeSpan.className = 'file-size';
+            sizeSpan.textContent = fileSize;
+            button.appendChild(sizeSpan);
+        }
+
         li.appendChild(button);
         $('fileList').appendChild(li);
     }

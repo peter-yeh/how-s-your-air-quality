@@ -56,7 +56,7 @@ namespace
             if (xQueueReceive(bleTxQueue, &filePath, portMAX_DELAY) == pdPASS && filePath != nullptr)
             {
                 activeStorage->streamFile(*filePath, [](const String &chunk)
-                                          {while (!sendChunk(chunk)) vTaskDelay(pdMS_TO_TICKS(1000)); });
+                                          {while (!sendChunk(chunk)) vTaskDelay(pdMS_TO_TICKS(100)); });
                 delete filePath;
             }
         }

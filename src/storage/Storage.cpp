@@ -206,6 +206,8 @@ bool StorageController::listCsvFiles(String &result)
                     if (!child.isDirectory() && isCsvFile(String(child.name())))
                     {
                         result += normalizePath(dirName, String(child.name()));
+                        result += "|";
+                        result += String(child.size());
                         result += "\n";
                     }
                     child = entry.openNextFile();
@@ -215,6 +217,8 @@ bool StorageController::listCsvFiles(String &result)
         else if (isCsvFile(String(entry.name())))
         {
             result += normalizePath("", String(entry.name()));
+            result += "|";
+            result += String(entry.size());
             result += "\n";
         }
         entry = root.openNextFile();

@@ -63,18 +63,20 @@ canvas {
 }
 
 .button-list {
-    display: block;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     width: 100%;
-    padding: .4rem .5rem;
+    padding: .45rem .65rem;
     margin: .1rem 0;
-    text-align: left;
     border: none;
     background: #071512;
     color: #d7fff4;
-    font-size: 12px;
+    font-size: 13px;
     cursor: pointer;
     border-radius: 2px;
     transition: background-color 0.2s;
+    box-sizing: border-box;
 }
 
 .button-list:hover {
@@ -83,6 +85,21 @@ canvas {
 
 .button-list:active {
     background: #1a4a3f;
+}
+
+.file-name {
+    font-family: monospace;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.file-size {
+    font-family: monospace;
+    color: #29d9ad;
+    font-size: 12px;
+    margin-left: 1.5rem;
+    white-space: nowrap;
 }
 
 #graphContainer {
