@@ -23,9 +23,7 @@ namespace
     {
         dataCharacteristic->setValue(chunk.c_str());
         bool chunkQueued = dataCharacteristic->notify(reinterpret_cast<const uint8_t *>(chunk.c_str()), chunk.length());
-        if (chunkQueued)
-            Serial.printf("[sendChunk] Sent %u bytes...\n", chunk.length());
-        else
+        if (!chunkQueued)
             Serial.printf("[sendChunk] Failed to send %u bytes!\n", chunk.length());
 
         return chunkQueued;
@@ -58,7 +56,7 @@ namespace
             if (xQueueReceive(bleTxQueue, &filePath, portMAX_DELAY) == pdPASS && filePath != nullptr)
             {
                 activeStorage->streamFile(*filePath, [](const String &chunk)
-                                          {while (!sendChunk(chunk)) vTaskDelay(pdMS_TO_TICKS(100)); });
+                                          {while (!sendChunk(chunk)) vTaskDelay(pdMS_TO_TICKS(1000)); });
                 delete filePath;
             }
         }

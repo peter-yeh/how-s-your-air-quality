@@ -287,7 +287,6 @@ bool StorageController::streamFile(const String &path, void (*onChunk)(const Str
     {
         const size_t count = file.readBytes(buffer, sizeof(buffer) - 1);
         buffer[count] = '\0';
-        Serial.printf("streamFile: chunk %u, %u bytes\n", (unsigned)chunkIndex, (unsigned)count);
         onChunk(String(buffer));
         chunkIndex++;
     }
