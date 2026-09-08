@@ -27,8 +27,9 @@ namespace
         {
             if (xQueueReceive(bleTxQueue, &filePath, portMAX_DELAY) == pdPASS && filePath != nullptr)
             {
-
-                activeStorage->streamFile(*filePath, );
+                activeStorage->streamFile(*filePath, [](const String &chunk)
+                                          {while (!sendChunk(chunk)) vTaskDelay(pdMS_TO_TICKS(100)); });
+                delete filePath;
             }
         }
     }
@@ -74,18 +75,25 @@ namespace
 
             if (command.startsWith("GET:"))
             {
-                int value = command.substring(4).toInt(); // "GET:" is 4 characters
-                Serial.printf("[CommandCallbacks] GET command received, generating: %d bytes\n", value);
-                String data = "\x01";
 
-                for (int i = 0; i < value; i++)
-                    data += "A";
+                String *pathPtr = new String("/09 2026/08092026.csv");
+                Serial.printf("[CommandCallbacks] Queuing: %s\n", pathPtr->c_str());
+                xQueueSend(bleTxQueue, &pathPtr, 0);
+            }
+            else if (command.startsWith("LIST"))
+            {
+                // int value = command.substring(4).toInt(); // "GET:" is 4 characters
+                // Serial.printf("[CommandCallbacks] GET command received, generating: %d bytes\n", value);
+                // String data = "\x01";
 
-                data += "\x02";
+                // for (int i = 0; i < value; i++)
+                //     data += "A";
 
-                String *pkgPtr = new String(data); // Allocate on heap so it survives the function scope
-                xQueueSend(bleTxQueue, &pkgPtr, 0);
-                Serial.printf("[CommandCallbacks] Sent: %u bytes\n", data.length());
+                // data += "\x02";
+
+                // String *pkgPtr = new String(data); // Allocate on heap so it survives the function scope
+                // xQueueSend(bleTxQueue, &pkgPtr, 0);
+                // Serial.printf("[CommandCallbacks] Sent: %u bytes\n", data.length());
             }
         }
     };
