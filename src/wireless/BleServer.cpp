@@ -16,23 +16,8 @@ namespace
 
     NimBLECharacteristic *dataCharacteristic = nullptr;
     StorageController *activeStorage = nullptr;
-    bool clientConnected = false;
-
     QueueHandle_t bleTxQueue = nullptr;
-    void sendCSVFile(void *param)
-    {
-        String *filePath = nullptr;
-
-        while (true)
-        {
-            if (xQueueReceive(bleTxQueue, &filePath, portMAX_DELAY) == pdPASS && filePath != nullptr)
-            {
-                activeStorage->streamFile(*filePath, [](const String &chunk)
-                                          {while (!sendChunk(chunk)) vTaskDelay(pdMS_TO_TICKS(100)); });
-                delete filePath;
-            }
-        }
-    }
+    bool clientConnected = false;
 
     bool sendChunk(const String &chunk)
     {
@@ -64,6 +49,20 @@ namespace
             }
         }
     }
+    void sendCSVFile(void *param)
+    {
+        String *filePath = nullptr;
+
+        while (true)
+        {
+            if (xQueueReceive(bleTxQueue, &filePath, portMAX_DELAY) == pdPASS && filePath != nullptr)
+            {
+                activeStorage->streamFile(*filePath, [](const String &chunk)
+                                          {while (!sendChunk(chunk)) vTaskDelay(pdMS_TO_TICKS(100)); });
+                delete filePath;
+            }
+        }
+    }
 
     class CommandCallbacks : public NimBLECharacteristicCallbacks
     {
@@ -75,25 +74,26 @@ namespace
 
             if (command.startsWith("GET:"))
             {
+                String filename = command.substring(4); // "GET:" is 4 characters
 
-                String *pathPtr = new String("/09 2026/08092026.csv");
+                String *pathPtr = new String("filename");
                 Serial.printf("[CommandCallbacks] Queuing: %s\n", pathPtr->c_str());
                 xQueueSend(bleTxQueue, &pathPtr, 0);
             }
             else if (command.startsWith("LIST"))
             {
-                // int value = command.substring(4).toInt(); // "GET:" is 4 characters
-                // Serial.printf("[CommandCallbacks] GET command received, generating: %d bytes\n", value);
-                // String data = "\x01";
+                String fileList;
+                if (activeStorage->listCsvFiles(fileList))
+                {
+                    Serial.printf("[CommandCallbacks] sending file list: %s\n", fileList.c_str());
 
-                // for (int i = 0; i < value; i++)
-                //     data += "A";
-
-                // data += "\x02";
-
-                // String *pkgPtr = new String(data); // Allocate on heap so it survives the function scope
-                // xQueueSend(bleTxQueue, &pkgPtr, 0);
-                // Serial.printf("[CommandCallbacks] Sent: %u bytes\n", data.length());
+                    sendPackage("\x01" + fileList + "\x02");
+                    Serial.printf("[CommandCallbacks] Sent file list");
+                }
+                else
+                {
+                    Serial.println("[CommandCallbacks] Failed to list CSV files");
+                }
             }
         }
     };

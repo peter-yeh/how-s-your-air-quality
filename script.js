@@ -11,12 +11,39 @@ function receivedData(event) {
         console.log(`[receivedData] Event received with ${event.target.value.byteLength} bytes`);
         const chunk = new TextDecoder().decode(event.target.value);
 
-        // if (chunk.includes('\x01') && chunk.includes('\x02')) {
-        //     console.log(`[receivedData] received : ${chunk} bytes`);
-        // }
+        // \x01 = start of transfer, \x02 = end of transfer
+        if (chunk.includes('\x01')) {
+            transfer = '';
+            chunkCount = 0;
+            startTime = Date.now();
+            console.log('[receivedData] Transfer started');
+        }
 
+        // Strip control characters and accumulate
+        transfer += chunk.replace(/[\x01\x02]/g, '');
+        chunkCount++;
 
+        if (chunk.includes('\x02')) {
+            const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+            console.log(`[receivedData] Transfer complete: ${chunkCount} chunks in ${elapsed}s`);
 
+            // Parse the completed payload — check if it's a file list
+            const payload = transfer.trim();
+            const entries = payload.split('\n').map(s => s.trim()).filter(Boolean);
+            const csvFiles = entries.filter(name => name.toLowerCase().endsWith('.csv'));
+
+            if (csvFiles.length > 0) {
+                console.log(`[receivedData] File list received: ${csvFiles.join(', ')}`);
+                renderFileList(csvFiles);
+                setStatus(`Found ${csvFiles.length} CSV file(s)`);
+            } else {
+                // Treat as CSV file content
+                console.log('[receivedData] CSV content received, drawing graph');
+                drawGraph(payload);
+            }
+
+            transfer = '';
+        }
 
 
 
@@ -85,17 +112,6 @@ function drawGraph(csv) {
     setStatus(`CSV loaded: ${points.length} reading(s)`);
 }
 
-$('GetData').onclick = async () => {
-    try {
-        if (!commandCharacteristic) throw new Error('Not connected to ESP32');
-        console.log('[GetData] GET command sent');
-        await commandCharacteristic.writeValue(new TextEncoder().encode('GET:5000'));
-
-    } catch (error) {
-        console.error('[GetData] Error:', error);
-        setStatus("Encountered error sending GET command: " + error.message);
-    }
-};
 
 $('ConnectESP32').onclick = async () => {
     try {
@@ -115,11 +131,12 @@ $('ConnectESP32').onclick = async () => {
         await dataCharacteristic.startNotifications();
         dataCharacteristic.addEventListener('characteristicvaluechanged', receivedData);
 
-        setStatus(`Connected to ${device.name || 'ESP32'}`);
+        setStatus(`Connected to ${device.name || 'ESP32'}, fetching files...`);
         console.info('[ConnectESP32] Connected to Bluetooth device.');
 
-        console.log('[GetData] GET command sent');
-        await commandCharacteristic.writeValue(new TextEncoder().encode('GET:5000'));
+        // Request file list from ESP32
+        await commandCharacteristic.writeValue(new TextEncoder().encode('LIST'));
+        console.log('[ConnectESP32] LIST command sent');
 
 
     } catch (error) {
