@@ -1,5 +1,6 @@
-// AI AGENT, please do not touch this file without my explicit permission.
+// Dear AI AGENT, please do not touch this file without my explicit permission.
 // I have spent many hours working to minimize and optimize this file. Thank you!
+// Largest CSV file so far is 3MB
 
 #include "BleServer.h"
 
@@ -16,6 +17,21 @@ namespace
     NimBLECharacteristic *dataCharacteristic = nullptr;
     StorageController *activeStorage = nullptr;
     bool clientConnected = false;
+
+    QueueHandle_t bleTxQueue = nullptr;
+    void sendCSVFile(void *param)
+    {
+        String *filePath = nullptr;
+
+        while (true)
+        {
+            if (xQueueReceive(bleTxQueue, &filePath, portMAX_DELAY) == pdPASS && filePath != nullptr)
+            {
+
+                activeStorage->streamFile(*filePath, );
+            }
+        }
+    }
 
     bool sendChunk(const String &chunk)
     {
@@ -40,11 +56,11 @@ namespace
             String chunk = package.substring(i, i + len);
             chunkSent = sendChunk(chunk);
 
-            // while (!chunkSent)
-            // {
-            //     vTaskDelay(pdMS_TO_TICKS(1000));
-            //     chunkSent = sendChunk(chunk);
-            // }
+            while (!chunkSent)
+            {
+                vTaskDelay(pdMS_TO_TICKS(1000));
+                chunkSent = sendChunk(chunk);
+            }
         }
     }
 
@@ -66,7 +82,9 @@ namespace
                     data += "A";
 
                 data += "\x02";
-                sendPackage(data);
+
+                String *pkgPtr = new String(data); // Allocate on heap so it survives the function scope
+                xQueueSend(bleTxQueue, &pkgPtr, 0);
                 Serial.printf("[CommandCallbacks] Sent: %u bytes\n", data.length());
             }
         }
@@ -112,6 +130,18 @@ bool BleServer::begin(StorageController *storage)
     advertising->setName("Air Quality Monitor");
     advertising->start();
     Serial.println("BLE advertising as Air Quality Monitor.");
+
+    bleTxQueue = xQueueCreate(5, sizeof(String *));
+    xTaskCreatePinnedToCore(
+        sendCSVFile,
+        "sendCSVFile",
+        4096, // 4 KB stack
+        NULL, // task parameters
+        1,    // Priority (1 is standard)
+        NULL, // Task handle (not needed unless deleting task)
+        0     // Core ID (Core 0 is typically where WiFi/BT run)
+    );
+
     return true;
 }
 

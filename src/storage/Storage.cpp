@@ -261,7 +261,7 @@ bool StorageController::streamFile(const String &path, void (*onChunk)(const Str
     }
 
     Serial.printf("streamFile: opened %s, size %u bytes\n", path.c_str(), (unsigned)file.size());
-    char buffer[181];
+    char buffer[245]; // 244 bytes + 1 null terminator
     size_t chunkIndex = 0;
     while (file.available())
     {
