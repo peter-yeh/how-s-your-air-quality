@@ -30,6 +30,8 @@ function receivedData(event) {
         chunkCount++;
 
         if (chunk.includes('\x02')) {
+            console.log('[receivedData] Transfer ended');
+
             const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
             console.log(`[receivedData] Transfer complete: ${chunkCount} chunks in ${elapsed}s`);
 

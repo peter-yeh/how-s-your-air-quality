@@ -55,8 +55,10 @@ namespace
         {
             if (xQueueReceive(bleTxQueue, &filePath, portMAX_DELAY) == pdPASS && filePath != nullptr)
             {
+                sendChunk("\x01");
                 activeStorage->streamFile(*filePath, [](const String &chunk)
-                                          {while (!sendChunk(chunk)) vTaskDelay(pdMS_TO_TICKS(100)); });
+                                          {while (!sendChunk(chunk)) vTaskDelay(pdMS_TO_TICKS(200)); });
+                sendChunk("\x02");
                 delete filePath;
             }
         }
@@ -75,7 +77,7 @@ namespace
                 String filename = command.substring(4); // "GET:" is 4 characters
 
                 String *pathPtr = new String(filename);
-                Serial.printf("[CommandCallbacks] Queuing: %s\n", pathPtr->c_str());
+                Serial.printf("[CommandCallbacks] Streaming CSV File: %s\n", pathPtr->c_str());
                 xQueueSend(bleTxQueue, &pathPtr, 0);
             }
             else if (command.startsWith("LIST"))
