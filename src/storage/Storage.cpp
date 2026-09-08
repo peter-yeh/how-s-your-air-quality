@@ -19,6 +19,22 @@ namespace
         return name.endsWith(".csv") || name.endsWith(".CSV");
     }
 
+    String normalizePath(String dir, String filename)
+    {
+        String fullPath = "";
+        if (dir.length() > 0)
+        {
+            if (!dir.startsWith("/"))
+                dir = "/" + dir;
+            if (dir.endsWith("/"))
+                dir = dir.substring(0, dir.length() - 1);
+            fullPath += dir;
+        }
+        if (!filename.startsWith("/"))
+            filename = "/" + filename;
+        fullPath += filename;
+        return fullPath;
+    }
 }
 
 StorageController::StorageController() : sdSpi(HSPI)
@@ -181,20 +197,24 @@ bool StorageController::listCsvFiles(String &result)
     {
         if (entry.isDirectory())
         {
-            File child = entry.openNextFile();
-            while (child)
+            String dirName = String(entry.name());
+            if (!dirName.endsWith("System Volume Information"))
             {
-                if (!child.isDirectory() && isCsvFile(String(child.name())))
+                File child = entry.openNextFile();
+                while (child)
                 {
-                    result += String(child.name());
-                    result += "\n";
+                    if (!child.isDirectory() && isCsvFile(String(child.name())))
+                    {
+                        result += normalizePath(dirName, String(child.name()));
+                        result += "\n";
+                    }
+                    child = entry.openNextFile();
                 }
-                child = entry.openNextFile();
             }
         }
         else if (isCsvFile(String(entry.name())))
         {
-            result += String(entry.name());
+            result += normalizePath("", String(entry.name()));
             result += "\n";
         }
         entry = root.openNextFile();

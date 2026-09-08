@@ -76,7 +76,7 @@ namespace
             {
                 String filename = command.substring(4); // "GET:" is 4 characters
 
-                String *pathPtr = new String("filename");
+                String *pathPtr = new String(filename);
                 Serial.printf("[CommandCallbacks] Queuing: %s\n", pathPtr->c_str());
                 xQueueSend(bleTxQueue, &pathPtr, 0);
             }

@@ -27,15 +27,14 @@ function receivedData(event) {
             const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
             console.log(`[receivedData] Transfer complete: ${chunkCount} chunks in ${elapsed}s`);
 
-            // Parse the completed payload — check if it's a file list
             const payload = transfer.trim();
             const entries = payload.split('\n').map(s => s.trim()).filter(Boolean);
-            const csvFiles = entries.filter(name => name.toLowerCase().endsWith('.csv'));
+            const isFileList = transferType === 'list' || (transferType !== 'file' && entries.length > 0 && entries.every(s => s.toLowerCase().endsWith('.csv')));
 
-            if (csvFiles.length > 0) {
-                console.log(`[receivedData] File list received: ${csvFiles.join(', ')}`);
-                renderFileList(csvFiles);
-                setStatus(`Found ${csvFiles.length} CSV file(s)`);
+            if (isFileList) {
+                console.log(`[receivedData] File list received: ${entries.join(', ')}`);
+                renderFileList(entries);
+                setStatus(`Found ${entries.length} CSV file(s)`);
             } else {
                 // Treat as CSV file content
                 console.log('[receivedData] CSV content received, drawing graph');
@@ -43,6 +42,7 @@ function receivedData(event) {
             }
 
             transfer = '';
+            transferType = '';
         }
 
 
@@ -57,6 +57,7 @@ function renderFileList(files) {
     for (const name of files) {
         const li = document.createElement('li');
         const button = document.createElement('button');
+        button.className = 'button-list';
         button.textContent = name;
         button.onclick = () => openFile(name);
         li.appendChild(button);
@@ -67,6 +68,7 @@ function renderFileList(files) {
 async function openFile(name) {
     if (!name.toLowerCase().endsWith('.csv')) return;
     transfer = '';
+    transferType = 'file';
     chunkCount = 0;
     console.log(`[openFile] Opening file: ${name}`);
     setStatus(`Loading ${name}...`);
@@ -135,6 +137,7 @@ $('ConnectESP32').onclick = async () => {
         console.info('[ConnectESP32] Connected to Bluetooth device.');
 
         // Request file list from ESP32
+        transferType = 'list';
         await commandCharacteristic.writeValue(new TextEncoder().encode('LIST'));
         console.log('[ConnectESP32] LIST command sent');
 
