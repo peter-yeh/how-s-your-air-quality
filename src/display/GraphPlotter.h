@@ -6,7 +6,7 @@
 class GraphPlotter
 {
 public:
-    static constexpr uint8_t MAX_HISTORY = 30;
+    static constexpr uint8_t MAX_HISTORY = 60;
 
     GraphPlotter(int16_t x = 36, int16_t y = 96, int16_t w = 261, int16_t h = 120, float maxVal = 100.0f);
 

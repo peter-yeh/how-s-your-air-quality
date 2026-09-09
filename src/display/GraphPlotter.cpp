@@ -44,7 +44,7 @@ void GraphPlotter::init(Adafruit_GFX &display)
     drawScaleLabels(display);
 
     display.setCursor(originX, originY + height + 4);
-    display.print("-30s");
+    display.print("-60m");
     display.setCursor(originX + width - 18, originY + height + 4);
     display.print("now");
 
@@ -139,8 +139,8 @@ void GraphPlotter::draw(Adafruit_GFX &display)
     // Draw lines connecting consecutive points
     for (uint8_t i = 1; i < historyCount; ++i)
     {
-        int16_t x1 = originX + (i - 1) * stepX;
-        int16_t x2 = originX + i * stepX;
+        int16_t x1 = originX + (int32_t)(i - 1) * width / (MAX_HISTORY - 1);
+        int16_t x2 = originX + (int32_t)i * width / (MAX_HISTORY - 1);
 
         display.drawLine(x1, mapY(historyPM1[i - 1]), x2, mapY(historyPM1[i]), COLOR_PM1);
         display.drawLine(x1, mapY(historyPM25[i - 1]), x2, mapY(historyPM25[i]), COLOR_PM25);

@@ -25,7 +25,8 @@ namespace
     float currentPM1 = 0;
     float currentPM25 = 0;
     float currentPM10 = 0;
-    bool needsRedraw = false;
+    bool needsPMRedraw = false;
+    bool needsGraphRedraw = false;
     int16_t screenShiftX = 0;
     int16_t screenShiftY = 0;
     String currentClock = "--:--:--";
@@ -128,30 +129,33 @@ void DisplayController::begin()
 
 void DisplayController::update()
 {
-    if (!needsRedraw)
+    if (needsPMRedraw)
     {
-        return;
+        needsPMRedraw = false;
+
+        // Clear previous numbers and redraw top values
+        display.fillRect(116 + screenShiftX, 39 + screenShiftY, 45, 16, ST77XX_BLACK);
+        display.fillRect(116 + screenShiftX, 58 + screenShiftY, 45, 16, ST77XX_BLACK);
+        display.fillRect(116 + screenShiftX, 77 + screenShiftY, 45, 16, ST77XX_BLACK);
+
+        display.setTextSize(NORMAL_FONT_SIZE);
+        display.setTextColor(ST77XX_WHITE);
+
+        display.setCursor(116 + screenShiftX, 39 + screenShiftY);
+        display.print((int)(currentPM1 + 0.5f));
+
+        display.setCursor(116 + screenShiftX, 58 + screenShiftY);
+        display.print((int)(currentPM25 + 0.5f));
+
+        display.setCursor(116 + screenShiftX, 77 + screenShiftY);
+        display.print((int)(currentPM10 + 0.5f));
     }
-    needsRedraw = false;
 
-    // Clear previous numbers and redraw top values
-    display.fillRect(116 + screenShiftX, 39 + screenShiftY, 45, 16, ST77XX_BLACK);
-    display.fillRect(116 + screenShiftX, 58 + screenShiftY, 45, 16, ST77XX_BLACK);
-    display.fillRect(116 + screenShiftX, 77 + screenShiftY, 45, 16, ST77XX_BLACK);
-
-    display.setTextSize(NORMAL_FONT_SIZE);
-    display.setTextColor(ST77XX_WHITE);
-
-    display.setCursor(116 + screenShiftX, 39 + screenShiftY);
-    display.print((int)(currentPM1 + 0.5f));
-
-    display.setCursor(116 + screenShiftX, 58 + screenShiftY);
-    display.print((int)(currentPM25 + 0.5f));
-
-    display.setCursor(116 + screenShiftX, 77 + screenShiftY);
-    display.print((int)(currentPM10 + 0.5f));
-
-    graph.draw(display);
+    if (needsGraphRedraw)
+    {
+        needsGraphRedraw = false;
+        graph.draw(display);
+    }
 }
 
 void DisplayController::showPM(float pm1Concentration, float pm25Concentration, float pm10Concentration)
@@ -159,9 +163,13 @@ void DisplayController::showPM(float pm1Concentration, float pm25Concentration, 
     currentPM1 = pm1Concentration;
     currentPM25 = pm25Concentration;
     currentPM10 = pm10Concentration;
+    needsPMRedraw = true;
+}
 
-    graph.addSample(currentPM1, currentPM25, currentPM10);
-    needsRedraw = true;
+void DisplayController::addGraphSample(float pm1, float pm25, float pm10)
+{
+    graph.addSample(pm1, pm25, pm10);
+    needsGraphRedraw = true;
 }
 
 void DisplayController::showStatus(const char *timeText, bool wifiConnected, bool bluetoothConnected)
@@ -214,5 +222,6 @@ void DisplayController::shiftScreen(int16_t x, int16_t y)
     graph.setPosition(BASE_GRAPH_X + screenShiftX, BASE_GRAPH_Y + screenShiftY);
     graph.init(display);
     showStatus(currentClock.c_str(), currentWifiConnected, currentBluetoothConnected);
-    needsRedraw = true;
+    needsPMRedraw = true;
+    needsGraphRedraw = true;
 }

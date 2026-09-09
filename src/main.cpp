@@ -5,6 +5,7 @@
 #include "display/Display.h"
 #include "storage/Storage.h"
 #include "sensor/Sensor.h"
+#include "sensor/RollingWindow.h"
 #include "wireless/Wireless.h"
 #include "wireless/BleServer.h"
 
@@ -16,8 +17,10 @@ BleServer ble;
 
 void airQualityTask(void *pvParameters)
 {
+  RollingWindow window;
   uint32_t lastStatusUpdate = 0;
   uint32_t lastBurnInShift = 0;
+  uint32_t lastMinuteTick = millis();
   uint8_t shiftIndex = 0;
   constexpr int16_t burnInShifts[] = {0, 5, 0, -5};
 
@@ -29,19 +32,36 @@ void airQualityTask(void *pvParameters)
 
     if (sensor.read(pm1, pm25, pm10))
     {
-      const String readingTime = wireless.currentTime();
-
-      if (readingTime != "time unavailable")
-      {
-        Reading reading;
-        reading.time = readingTime;
-        reading.pm1 = pm1;
-        reading.pm25 = pm25;
-        reading.pm10 = pm10;
-        storage.saveReading(reading);
-      }
-
+      // Real-time PM readings on the display update every second
       display.showPM(pm1, pm25, pm10);
+      window.addSample(pm1, pm25, pm10);
+    }
+
+    // Every minute: compute average readings, update graph, and save to CSV
+    if (millis() - lastMinuteTick >= 60000)
+    {
+      lastMinuteTick = millis();
+
+      float avgPm1 = 0;
+      float avgPm25 = 0;
+      float avgPm10 = 0;
+
+      if (window.getAverage(avgPm1, avgPm25, avgPm10))
+      {
+        const String readingTime = wireless.currentTime();
+        if (readingTime != "time unavailable")
+        {
+          Reading reading;
+          reading.time = readingTime;
+          reading.pm1 = avgPm1;
+          reading.pm25 = avgPm25;
+          reading.pm10 = avgPm10;
+          storage.saveReading(reading);
+        }
+
+        display.addGraphSample(avgPm1, avgPm25, avgPm10);
+        window.clear();
+      }
     }
 
     if (millis() - lastStatusUpdate >= 1000)
@@ -58,7 +78,7 @@ void airQualityTask(void *pvParameters)
       lastBurnInShift = millis();
     }
 
-    vTaskDelay(pdMS_TO_TICKS(200));
+    vTaskDelay(pdMS_TO_TICKS(100));
   }
 }
 
