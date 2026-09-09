@@ -15,7 +15,6 @@ namespace
     }
 }
 
-
 void AirQualityStats::addSample(float pm1, float pm25, float pm10)
 {
     samples[head].pm1 = pm1;

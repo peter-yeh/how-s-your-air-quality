@@ -75,15 +75,12 @@ void airQualityTask(void *pvParameters)
     {
       lastDisplayUpdate = millis();
 
-      if (hasReading)
-      {
-        display.showCurrent(lastPm1, lastPm25, lastPm10);
+      display.showCurrent(lastPm1, lastPm25, lastPm10);
 
-        AirQualitySummary summary;
-        if (stats.getSummary(summary))
-        {
-          display.showStats(summary);
-        }
+      AirQualitySummary summary;
+      if (stats.getSummary(summary))
+      {
+        display.showStats(summary);
       }
 
       display.showStatus(wireless.clockTime().c_str(), wireless.connected(), ble.connected(), millis() / 1000);
