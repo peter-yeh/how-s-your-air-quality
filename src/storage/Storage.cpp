@@ -5,6 +5,7 @@
 #include <SD.h>
 #include <SPI.h>
 #include <time.h>
+#include <Preferences.h>
 
 namespace
 {
@@ -382,4 +383,25 @@ bool StorageController::testReadWrite()
     bool passed = actual == expected;
     Serial.println(passed ? "SD read/write test passed." : "SD read/write test failed: data mismatch.");
     return passed;
+}
+
+uint8_t StorageController::getBrightness()
+{
+    Preferences preferences;
+    preferences.begin("air_sensor", true);                        // read-only mode
+    uint8_t brightness = preferences.getUChar("brightness", 128); // default 128 (50%)
+    preferences.end();
+    Serial.printf("getBrightness: %u\n", brightness);
+    return brightness;
+}
+
+bool StorageController::setBrightness(uint8_t brightness)
+{
+    Preferences preferences;
+    preferences.begin("air_sensor", false); // read-write mode
+    preferences.putUChar("brightness", brightness);
+    bool success = preferences.getBytesLength("brightness") > 0;
+    preferences.end();
+    Serial.printf("setBrightness: %u (success: %s)\n", brightness, success ? "true" : "false");
+    return success;
 }

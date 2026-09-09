@@ -100,11 +100,15 @@ void setup()
 {
   Serial.begin(115200);
   display.begin();
-  display.setBrightness(128); // 0–255
   storage.begin();
   storage.testReadWrite();
+
+  // Read brightness from storage and set it
+  uint8_t brightness = storage.getBrightness();
+  display.setBrightness(brightness);
+
   wireless.begin("AnsonGarden", "66485973", 8 * 60 * 60);
-  ble.begin(&storage);
+  ble.begin(&storage, &display);
 
   Serial.println("\n--- BMV080 Initializing ---");
   while (!sensor.begin())

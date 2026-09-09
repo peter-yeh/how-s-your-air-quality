@@ -6,6 +6,7 @@
 
 #include <NimBLEDevice.h>
 #include "storage/Storage.h"
+#include "display/Display.h"
 
 namespace
 {
@@ -16,6 +17,7 @@ namespace
 
     NimBLECharacteristic *dataCharacteristic = nullptr;
     StorageController *activeStorage = nullptr;
+    DisplayController *activeDisplay = nullptr;
     QueueHandle_t bleTxQueue = nullptr;
     bool clientConnected = false;
 
@@ -95,6 +97,31 @@ namespace
                     Serial.println("[CommandCallbacks] Failed to list CSV files");
                 }
             }
+            else if (command.startsWith("GetBrightness"))
+            {
+                uint8_t brightness = activeStorage->getBrightness();
+                String response = "BRIGHTNESS:" + String(brightness);
+                Serial.printf("[CommandCallbacks] Sending brightness: %u\n", brightness);
+                sendChunk(response);
+            }
+            else if (command.startsWith("SetBrightness:"))
+            {
+                String brightnessStr = command.substring(14); // "SetBrightness:" is 14 characters
+                uint8_t brightness = (uint8_t)brightnessStr.toInt();
+                if (brightness >= 0 && brightness <= 255)
+                {
+                    activeStorage->setBrightness(brightness);
+                    if (activeDisplay)
+                    {
+                        activeDisplay->setBrightness(brightness);
+                        Serial.printf("[CommandCallbacks] Brightness set to %u (0-255)\n", brightness);
+                    }
+                }
+                else
+                {
+                    Serial.printf("[CommandCallbacks] Invalid brightness value: %u\n", brightness);
+                }
+            }
         }
     };
 
@@ -117,9 +144,10 @@ namespace
     };
 }
 
-bool BleServer::begin(StorageController *storage)
+bool BleServer::begin(StorageController *storage, DisplayController *display)
 {
     activeStorage = storage;
+    activeDisplay = display;
 
     NimBLEDevice::init("Air Quality Monitor");
     // NimBLEDevice::setMTU(MAX_TRANSMISSION_UNIT);

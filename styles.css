@@ -39,6 +39,74 @@ button:not(:disabled):hover {
     margin: 1rem 0;
 }
 
+#brightnessControl {
+    padding: 1rem;
+    background: #071512;
+    border: 1px solid #29d9ad;
+    border-radius: 3px;
+    margin: 1rem 0;
+}
+
+#brightnessControl label {
+    display: block;
+    margin-bottom: .5rem;
+    color: #8fffe0;
+    font-size: 14px;
+}
+
+.slider-container {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+}
+
+input[type="range"] {
+    flex: 1;
+    height: 6px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: #1a3a2e;
+    border-radius: 5px;
+    outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #29d9ad;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+    background: #3ae8bc;
+}
+
+input[type="range"]::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #29d9ad;
+    cursor: pointer;
+    border: none;
+    transition: background-color 0.2s;
+}
+
+input[type="range"]::-moz-range-thumb:hover {
+    background: #3ae8bc;
+}
+
+#brightnessValue {
+    min-width: 40px;
+    text-align: right;
+    color: #29d9ad;
+    font-family: monospace;
+    font-size: 14px;
+}
+
 
 canvas {
     width: 100%;

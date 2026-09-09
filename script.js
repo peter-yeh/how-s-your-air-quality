@@ -1,7 +1,7 @@
 const serviceUuid = '4fa8691a-1360-4c27-ba5c-057245417c92';
 const dataUuid = '4fa8691b-1360-4c27-ba5c-057245417c92';
 const commandUuid = '4fa8691c-1360-4c27-ba5c-057245417c92';
-let dataCharacteristic, commandCharacteristic, transfer = '', transferType = '', chunkCount = 0, startTime = 0;
+let dataCharacteristic, commandCharacteristic, transfer = '', transferType = '', chunkCount = 0, startTime = 0, expectedFileSize = 0, currentFileName = '';
 const $ = id => document.getElementById(id);
 
 function setStatus(message) { $('status').textContent = message; }
@@ -17,6 +17,17 @@ function receivedData(event) {
         console.log(`[receivedData] Event received with ${event.target.value.byteLength} bytes`);
         const chunk = new TextDecoder().decode(event.target.value);
 
+        // Check if this is a brightness response
+        if (chunk.startsWith('BRIGHTNESS:')) {
+            const brightnessStr = chunk.substring(11).trim();
+            const brightness0to255 = parseInt(brightnessStr, 10);
+            const brightnessPercent = Math.round((brightness0to255 / 255) * 100);
+            console.log(`[receivedData] Brightness response: ${brightness0to255} (0-255) = ${brightnessPercent}%`);
+            $('brightnessSlider').value = brightnessPercent;
+            $('brightnessValue').textContent = brightnessPercent + '%';
+            return;
+        }
+
         // \x01 = start of transfer, \x02 = end of transfer
         if (chunk.includes('\x01')) {
             transfer = '';
@@ -28,6 +39,14 @@ function receivedData(event) {
         // Strip control characters and accumulate
         transfer += chunk.replace(/[\x01\x02]/g, '');
         chunkCount++;
+
+        // Show live progress during file download
+        if (transferType === 'file' && expectedFileSize > 0) {
+            const bytesReceived = new TextEncoder().encode(transfer).length;
+            const mbReceived = (bytesReceived / (1024 * 1024)).toFixed(2);
+            const mbExpected = (expectedFileSize / (1024 * 1024)).toFixed(2);
+            setStatus(`${currentFileName} (${chunkCount} pkts | ${mbReceived}/${mbExpected} MB)`);
+        }
 
         if (chunk.includes('\x02')) {
             console.log('[receivedData] Transfer ended');
@@ -73,10 +92,12 @@ function renderFileList(files) {
     for (const file of files) {
         const filePath = typeof file === 'string' ? file : file.name;
         const fileSize = typeof file === 'object' && file.size !== null ? formatFileSize(file.size) : '';
+        const rawSize = typeof file === 'object' && file.size !== null ? file.size : 0;
 
         const li = document.createElement('li');
         const button = document.createElement('button');
         button.className = 'button-list';
+        button.dataset.size = rawSize;
         button.onclick = () => openFile(filePath);
 
         const nameSpan = document.createElement('span');
@@ -98,12 +119,14 @@ function renderFileList(files) {
 
 async function openFile(name) {
     if (!name.toLowerCase().endsWith('.csv')) return;
+    const fileObj = Array.from($('fileList').querySelectorAll('.button-list')).find(btn => btn.querySelector('.file-name').textContent === name);
+    expectedFileSize = fileObj ? parseInt(fileObj.dataset.size || '0') : 0;
+    currentFileName = name;
     transfer = '';
     transferType = 'file';
     chunkCount = 0;
     console.log(`[openFile] Opening file: ${name}`);
     setStatus(`Loading ${name}...`);
-    console.log('[openFile] Sending GET command');
     await commandCharacteristic.writeValue(new TextEncoder().encode('GET:' + name));
     console.log('[openFile] GET command sent');
 }
@@ -167,6 +190,13 @@ $('ConnectESP32').onclick = async () => {
         setStatus(`Connected to ${device.name || 'ESP32'}, fetching files...`);
         console.info('[ConnectESP32] Connected to Bluetooth device.');
 
+        // Show brightness control
+        $('brightnessControl').style.display = 'block';
+
+        // Request current brightness from ESP32
+        await commandCharacteristic.writeValue(new TextEncoder().encode('GetBrightness'));
+        console.log('[ConnectESP32] GetBrightness command sent');
+
         // Request file list from ESP32
         transferType = 'list';
         await commandCharacteristic.writeValue(new TextEncoder().encode('LIST'));
@@ -178,4 +208,25 @@ $('ConnectESP32').onclick = async () => {
         setStatus("Encountered error connecting: " + error.message);
     }
 };
+
+// Brightness slider handler
+$('brightnessSlider').addEventListener('input', async (event) => {
+    const brightnessPercent = parseInt(event.target.value, 10);
+    $('brightnessValue').textContent = brightnessPercent + '%';
+
+    // Convert percentage (1-100) to 0-255
+    const brightness0to255 = Math.round((brightnessPercent / 100) * 255);
+
+    console.log(`[brightnessSlider] Sending SetBrightness: ${brightnessPercent}% = ${brightness0to255} (0-255)`);
+
+    if (commandCharacteristic) {
+        try {
+            await commandCharacteristic.writeValue(new TextEncoder().encode(`SetBrightness:${brightness0to255}`));
+            console.log('[brightnessSlider] SetBrightness command sent');
+        } catch (error) {
+            console.error('[brightnessSlider] Error sending brightness:', error);
+        }
+    }
+});
+
 

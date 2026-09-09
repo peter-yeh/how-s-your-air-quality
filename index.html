@@ -12,6 +12,13 @@
     <h1>AirQuality ESP32</h1>
     <button id="ConnectESP32">Connect ESP32</button>
     <div id="status">Disconnected</div>
+    <div id="brightnessControl" style="display: none;" class="control-panel">
+        <label for="brightnessSlider">Screen Brightness</label>
+        <div class="slider-container">
+            <input type="range" id="brightnessSlider" min="1" max="100" value="50">
+            <span id="brightnessValue">50%</span>
+        </div>
+    </div>
     <ul id="fileList"></ul>
     <div id="graphContainer">
         <canvas id="graph" height="360"></canvas>
