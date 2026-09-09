@@ -28,7 +28,6 @@ void airQualityTask(void *pvParameters)
   float lastPm1 = 0;
   float lastPm25 = 0;
   float lastPm10 = 0;
-  bool hasReading = false;
 
   while (true)
   {
@@ -41,7 +40,6 @@ void airQualityTask(void *pvParameters)
       lastPm1 = pm1;
       lastPm25 = pm25;
       lastPm10 = pm10;
-      hasReading = true;
       stats.addSample(pm1, pm25, pm10);
     }
 

@@ -6,7 +6,8 @@
 class GraphPlotter
 {
 public:
-    static constexpr uint8_t MAX_HISTORY = 60;
+    static constexpr uint8_t MAX_HISTORY = 120; // Collect up to 120 points
+    static constexpr uint8_t MIN_HISTORY = 80;  // Collapse to 80 when reaching 120
 
     GraphPlotter(int16_t x = 36, int16_t y = 96, int16_t w = 261, int16_t h = 120, float maxVal = 100.0f);
 
@@ -21,6 +22,9 @@ private:
     void drawGrid(Adafruit_GFX &display);
     void updateScale();
     void drawScaleLabels(Adafruit_GFX &display);
+    void drawTimeLabels(Adafruit_GFX &display);
+    void collapse();
+    uint16_t getTimeLabel(uint8_t index, bool isEnd = false) const;
 
     int16_t originX;
     int16_t originY;
@@ -29,6 +33,7 @@ private:
     int16_t stepX;
     float minScale;
     float maxScale;
+    uint16_t timeUnitMinutes; // Current time per data point
 
     float historyPM1[MAX_HISTORY];
     float historyPM25[MAX_HISTORY];
