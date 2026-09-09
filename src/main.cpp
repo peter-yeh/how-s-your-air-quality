@@ -31,7 +31,7 @@ void airQualityTask(void *pvParameters)
 
     if (sensor.read(pm1, pm25, pm10))
     {
-      // Real-time PM readings on the display update every second
+      display.showCurrent(pm1, pm25, pm10);
       stats.addSample(pm1, pm25, pm10);
 
       AirQualitySummary summary;
@@ -88,6 +88,7 @@ void setup()
 {
   Serial.begin(115200);
   display.begin();
+  display.setBrightness(128);
   storage.begin();
   storage.testReadWrite();
   wireless.begin("AnsonGarden", "66485973", 8 * 60 * 60);

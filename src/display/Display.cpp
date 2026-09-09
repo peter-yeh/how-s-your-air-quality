@@ -16,17 +16,19 @@ namespace
     constexpr uint8_t TFT_BL = 27;
     constexpr int16_t BASE_GRAPH_X = 36;
     constexpr int16_t BASE_GRAPH_Y = 96;
-    constexpr uint8_t NORMAL_FONT_SIZE = 2;
     constexpr uint8_t SMALL_FONT_SIZE = 1;
-    constexpr int16_t UPTIME_X = 10;
-    constexpr int16_t UPTIME_Y = 5;
+    constexpr uint8_t TFT_BRIGHTNESS = 1;
 
     Adafruit_ST7789 display(&SPI, TFT_CS, TFT_DC, -1);
     GraphPlotter graph;
 
     AirQualitySummary currentSummary;
+    float currentPm1 = 0;
+    float currentPm25 = 0;
+    float currentPm10 = 0;
     uint32_t currentUptimeSeconds = 0;
     bool hasSummary = false;
+    bool needsTopBarRedraw = false;
     bool needsPMRedraw = false;
     bool needsGraphRedraw = false;
     int16_t screenShiftX = 0;
@@ -34,6 +36,9 @@ namespace
     String currentClock = "--:--:--";
     bool currentWifiConnected = false;
     bool currentBluetoothConnected = false;
+
+    void drawBluetoothIcon(bool connected);
+    void drawWifiIcon(bool connected);
 
     String formatUptime(uint32_t uptimeSeconds)
     {
@@ -57,30 +62,41 @@ namespace
         return result;
     }
 
-    void drawUptime()
+    void drawTopBar()
     {
-        display.fillRect(5 + screenShiftX, UPTIME_Y + screenShiftY, 90, 8, ST77XX_BLACK);
+        display.fillRect(screenShiftX, screenShiftY, 320, 16, ST77XX_BLACK);
         display.setTextSize(SMALL_FONT_SIZE);
         display.setTextColor(ST77XX_WHITE);
-        display.setCursor(UPTIME_X + screenShiftX, UPTIME_Y + screenShiftY);
+        display.setCursor(5 + screenShiftX, 5 + screenShiftY);
         display.print(formatUptime(currentUptimeSeconds));
+
+        display.setCursor(127 + screenShiftX, 5 + screenShiftY);
+        display.print("Air Quality");
+
+        display.setCursor(240 + screenShiftX, 5 + screenShiftY);
+        display.print(currentClock);
+        drawBluetoothIcon(currentBluetoothConnected);
+        drawWifiIcon(currentWifiConnected);
     }
 
     void drawSummary()
     {
-        display.fillRect(34 + screenShiftX, 29 + screenShiftY, 205, 51, ST77XX_BLACK);
+        display.fillRect(34 + screenShiftX, 29 + screenShiftY, 220, 51, ST77XX_BLACK);
         display.setTextSize(SMALL_FONT_SIZE);
         display.setTextColor(ST77XX_WHITE);
         display.setCursor(66 + screenShiftX, 29 + screenShiftY);
+        display.print("Now");
+        display.setCursor(100 + screenShiftX, 29 + screenShiftY);
         display.print("Low");
-        display.setCursor(105 + screenShiftX, 29 + screenShiftY);
+        display.setCursor(140 + screenShiftX, 29 + screenShiftY);
         display.print("High");
-        display.setCursor(148 + screenShiftX, 29 + screenShiftY);
+        display.setCursor(180 + screenShiftX, 29 + screenShiftY);
         display.print("Avg");
 
         const int16_t rowY[] = {40, 55, 70};
         const uint16_t rowColors[] = {ST77XX_CYAN, ST77XX_YELLOW, ST77XX_MAGENTA};
         const char *labels[] = {"PM1", "PM25", "PM10"};
+        const float currentValues[] = {currentPm1, currentPm25, currentPm10};
         const float lowValues[] = {currentSummary.lowPm1, currentSummary.lowPm25, currentSummary.lowPm10};
         const float highValues[] = {currentSummary.highPm1, currentSummary.highPm25, currentSummary.highPm10};
         const float averageValues[] = {currentSummary.averagePm1, currentSummary.averagePm25, currentSummary.averagePm10};
@@ -92,12 +108,14 @@ namespace
             display.print(labels[i]);
             display.setTextColor(ST77XX_WHITE);
             display.setCursor(66 + screenShiftX, rowY[i] + screenShiftY);
+            display.print((int)(currentValues[i] + 0.5f));
+            display.setCursor(100 + screenShiftX, rowY[i] + screenShiftY);
             display.print((int)(lowValues[i] + 0.5f));
-            display.setCursor(105 + screenShiftX, rowY[i] + screenShiftY);
+            display.setCursor(140 + screenShiftX, rowY[i] + screenShiftY);
             display.print((int)(highValues[i] + 0.5f));
-            display.setCursor(148 + screenShiftX, rowY[i] + screenShiftY);
+            display.setCursor(180 + screenShiftX, rowY[i] + screenShiftY);
             display.print((int)(averageValues[i] + 0.5f));
-            display.setCursor(190 + screenShiftX, rowY[i] + screenShiftY);
+            display.setCursor(218 + screenShiftX, rowY[i] + screenShiftY);
             display.print("ug/m3");
         }
     }
@@ -150,18 +168,13 @@ namespace
 void DisplayController::begin()
 {
     pinMode(TFT_BL, OUTPUT);
-    digitalWrite(TFT_BL, HIGH);
+    setBrightness(TFT_BRIGHTNESS);
 
     SPI.begin(TFT_SCK, TFT_MISO, TFT_MOSI, TFT_CS);
     display.init(240, 320);
     display.setRotation(3);
     display.fillScreen(ST77XX_BLACK);
 
-    // Compact header and readings leave a 20-pixel edge margin.
-    display.setTextColor(ST77XX_WHITE);
-    display.setTextSize(NORMAL_FONT_SIZE);
-    display.setCursor(BASE_GRAPH_X, 20);
-    display.println("Air Quality");
     showStatus("--:--:--", false, false, 0);
 
     // Initialize graph frame, scale, and grid
@@ -184,11 +197,30 @@ void DisplayController::update()
         }
     }
 
+    if (needsTopBarRedraw)
+    {
+        needsTopBarRedraw = false;
+        drawTopBar();
+    }
+
     if (needsGraphRedraw)
     {
         needsGraphRedraw = false;
         graph.draw(display);
     }
+}
+
+void DisplayController::showCurrent(float pm1, float pm25, float pm10)
+{
+    currentPm1 = pm1;
+    currentPm25 = pm25;
+    currentPm10 = pm10;
+    needsPMRedraw = true;
+}
+
+void DisplayController::setBrightness(uint8_t brightness)
+{
+    analogWrite(TFT_BL, brightness);
 }
 
 void DisplayController::showStats(const AirQualitySummary &summary)
@@ -210,14 +242,7 @@ void DisplayController::showStatus(const char *timeText, bool wifiConnected, boo
     currentWifiConnected = wifiConnected;
     currentBluetoothConnected = bluetoothConnected;
     currentUptimeSeconds = uptimeSeconds;
-    drawUptime();
-    display.fillRect(234 + screenShiftX, 7 + screenShiftY, 81, 16, ST77XX_BLACK);
-    display.setTextSize(SMALL_FONT_SIZE);
-    display.setTextColor(ST77XX_WHITE);
-    display.setCursor(240 + screenShiftX, 7 + screenShiftY);
-    display.print(timeText);
-    drawBluetoothIcon(bluetoothConnected);
-    drawWifiIcon(wifiConnected);
+    needsTopBarRedraw = true;
 }
 
 void DisplayController::shiftScreen(int16_t x, int16_t y)
@@ -226,14 +251,10 @@ void DisplayController::shiftScreen(int16_t x, int16_t y)
     screenShiftY = y;
     display.fillScreen(ST77XX_BLACK);
 
-    display.setTextColor(ST77XX_WHITE);
-    display.setTextSize(NORMAL_FONT_SIZE);
-    display.setCursor(BASE_GRAPH_X + screenShiftX, 20 + screenShiftY);
-    display.println("Air Quality");
-
     graph.setPosition(BASE_GRAPH_X + screenShiftX, BASE_GRAPH_Y + screenShiftY);
     graph.init(display);
     showStatus(currentClock.c_str(), currentWifiConnected, currentBluetoothConnected, currentUptimeSeconds);
+    drawTopBar();
     if (hasSummary)
     {
         drawSummary();

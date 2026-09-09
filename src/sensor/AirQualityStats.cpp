@@ -29,7 +29,7 @@ bool AirQualityStats::getSummary(AirQualitySummary &summary) const
 
     for (size_t i = 0; i < count; ++i)
     {
-        if (now - samples[i].timestamp <= 61000)
+        if (now - samples[i].timestamp <= 60000)
         {
             if (validCount == 0)
             {
