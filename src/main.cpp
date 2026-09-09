@@ -5,7 +5,6 @@
 #include "display/Display.h"
 #include "storage/Storage.h"
 #include "sensor/Sensor.h"
-#include "sensor/RollingWindow.h"
 #include "wireless/Wireless.h"
 #include "wireless/BleServer.h"
 
@@ -17,7 +16,7 @@ BleServer ble;
 
 void airQualityTask(void *pvParameters)
 {
-  RollingWindow window;
+  AirQualityStats stats;
   uint32_t lastStatusUpdate = 0;
   uint32_t lastBurnInShift = 0;
   uint32_t lastMinuteTick = millis();
@@ -33,8 +32,13 @@ void airQualityTask(void *pvParameters)
     if (sensor.read(pm1, pm25, pm10))
     {
       // Real-time PM readings on the display update every second
-      display.showPM(pm1, pm25, pm10);
-      window.addSample(pm1, pm25, pm10);
+      stats.addSample(pm1, pm25, pm10);
+
+      AirQualitySummary summary;
+      if (stats.getSummary(summary))
+      {
+        display.showStats(summary);
+      }
     }
 
     // Every minute: compute average readings, update graph, and save to CSV
@@ -42,36 +46,34 @@ void airQualityTask(void *pvParameters)
     {
       lastMinuteTick = millis();
 
-      float avgPm1 = 0;
-      float avgPm25 = 0;
-      float avgPm10 = 0;
+      AirQualitySummary summary;
 
-      if (window.getAverage(avgPm1, avgPm25, avgPm10))
+      if (stats.getSummary(summary))
       {
         const String readingTime = wireless.currentTime();
         if (readingTime != "time unavailable")
         {
           Reading reading;
           reading.time = readingTime;
-          reading.pm1 = avgPm1;
-          reading.pm25 = avgPm25;
-          reading.pm10 = avgPm10;
+          reading.pm1 = summary.averagePm1;
+          reading.pm25 = summary.averagePm25;
+          reading.pm10 = summary.averagePm10;
           storage.saveReading(reading);
         }
 
-        display.addGraphSample(avgPm1, avgPm25, avgPm10);
-        window.clear();
+        display.addGraphSample(summary.averagePm1, summary.averagePm25, summary.averagePm10);
+        stats.clear();
       }
     }
 
     if (millis() - lastStatusUpdate >= 1000)
     {
-      display.showStatus(wireless.clockTime().c_str(), wireless.connected(), ble.connected());
+      display.showStatus(wireless.clockTime().c_str(), wireless.connected(), ble.connected(), millis() / 1000);
       lastStatusUpdate = millis();
     }
 
     display.update();
-    if (millis() - lastBurnInShift >= 30000)
+    if (millis() - lastBurnInShift >= 60000)
     {
       shiftIndex = (shiftIndex + 1) % 4;
       display.shiftScreen(burnInShifts[shiftIndex], 0);

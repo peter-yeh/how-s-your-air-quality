@@ -18,13 +18,15 @@ namespace
     constexpr int16_t BASE_GRAPH_Y = 96;
     constexpr uint8_t NORMAL_FONT_SIZE = 2;
     constexpr uint8_t SMALL_FONT_SIZE = 1;
+    constexpr int16_t UPTIME_X = 10;
+    constexpr int16_t UPTIME_Y = 5;
 
     Adafruit_ST7789 display(&SPI, TFT_CS, TFT_DC, -1);
     GraphPlotter graph;
 
-    float currentPM1 = 0;
-    float currentPM25 = 0;
-    float currentPM10 = 0;
+    AirQualitySummary currentSummary;
+    uint32_t currentUptimeSeconds = 0;
+    bool hasSummary = false;
     bool needsPMRedraw = false;
     bool needsGraphRedraw = false;
     int16_t screenShiftX = 0;
@@ -32,6 +34,73 @@ namespace
     String currentClock = "--:--:--";
     bool currentWifiConnected = false;
     bool currentBluetoothConnected = false;
+
+    String formatUptime(uint32_t uptimeSeconds)
+    {
+        const uint32_t hours = uptimeSeconds / 3600;
+        const uint8_t minutes = (uptimeSeconds / 60) % 60;
+        const uint8_t seconds = uptimeSeconds % 60;
+        String result = "Up ";
+        result += hours;
+        result += ":";
+        if (minutes < 10)
+        {
+            result += "0";
+        }
+        result += minutes;
+        result += ":";
+        if (seconds < 10)
+        {
+            result += "0";
+        }
+        result += seconds;
+        return result;
+    }
+
+    void drawUptime()
+    {
+        display.fillRect(5 + screenShiftX, UPTIME_Y + screenShiftY, 90, 8, ST77XX_BLACK);
+        display.setTextSize(SMALL_FONT_SIZE);
+        display.setTextColor(ST77XX_WHITE);
+        display.setCursor(UPTIME_X + screenShiftX, UPTIME_Y + screenShiftY);
+        display.print(formatUptime(currentUptimeSeconds));
+    }
+
+    void drawSummary()
+    {
+        display.fillRect(34 + screenShiftX, 29 + screenShiftY, 205, 51, ST77XX_BLACK);
+        display.setTextSize(SMALL_FONT_SIZE);
+        display.setTextColor(ST77XX_WHITE);
+        display.setCursor(66 + screenShiftX, 29 + screenShiftY);
+        display.print("Low");
+        display.setCursor(105 + screenShiftX, 29 + screenShiftY);
+        display.print("High");
+        display.setCursor(148 + screenShiftX, 29 + screenShiftY);
+        display.print("Avg");
+
+        const int16_t rowY[] = {40, 55, 70};
+        const uint16_t rowColors[] = {ST77XX_CYAN, ST77XX_YELLOW, ST77XX_MAGENTA};
+        const char *labels[] = {"PM1", "PM25", "PM10"};
+        const float lowValues[] = {currentSummary.lowPm1, currentSummary.lowPm25, currentSummary.lowPm10};
+        const float highValues[] = {currentSummary.highPm1, currentSummary.highPm25, currentSummary.highPm10};
+        const float averageValues[] = {currentSummary.averagePm1, currentSummary.averagePm25, currentSummary.averagePm10};
+
+        for (uint8_t i = 0; i < 3; ++i)
+        {
+            display.setTextColor(rowColors[i]);
+            display.setCursor(36 + screenShiftX, rowY[i] + screenShiftY);
+            display.print(labels[i]);
+            display.setTextColor(ST77XX_WHITE);
+            display.setCursor(66 + screenShiftX, rowY[i] + screenShiftY);
+            display.print((int)(lowValues[i] + 0.5f));
+            display.setCursor(105 + screenShiftX, rowY[i] + screenShiftY);
+            display.print((int)(highValues[i] + 0.5f));
+            display.setCursor(148 + screenShiftX, rowY[i] + screenShiftY);
+            display.print((int)(averageValues[i] + 0.5f));
+            display.setCursor(190 + screenShiftX, rowY[i] + screenShiftY);
+            display.print("ug/m3");
+        }
+    }
 
     void drawBluetoothIcon(bool connected)
     {
@@ -93,31 +162,7 @@ void DisplayController::begin()
     display.setTextSize(NORMAL_FONT_SIZE);
     display.setCursor(BASE_GRAPH_X, 20);
     display.println("Air Quality");
-    showStatus("--:--:--", false);
-
-    // Static Value Labels (Color-coded to match graph curves)
-    display.setTextSize(NORMAL_FONT_SIZE);
-
-    display.setTextColor(ST77XX_CYAN);
-    display.setCursor(BASE_GRAPH_X, 39);
-    display.print("PM1.0:");
-    display.setTextColor(ST77XX_WHITE);
-    display.setCursor(161, 39);
-    display.print("ug/m3");
-
-    display.setTextColor(ST77XX_YELLOW);
-    display.setCursor(BASE_GRAPH_X, 58);
-    display.print("PM2.5:");
-    display.setTextColor(ST77XX_WHITE);
-    display.setCursor(161, 58);
-    display.print("ug/m3");
-
-    display.setTextColor(ST77XX_MAGENTA);
-    display.setCursor(BASE_GRAPH_X, 77);
-    display.print("PM10:");
-    display.setTextColor(ST77XX_WHITE);
-    display.setCursor(161, 77);
-    display.print("ug/m3");
+    showStatus("--:--:--", false, false, 0);
 
     // Initialize graph frame, scale, and grid
     graph.setPosition(BASE_GRAPH_X, BASE_GRAPH_Y);
@@ -133,22 +178,10 @@ void DisplayController::update()
     {
         needsPMRedraw = false;
 
-        // Clear previous numbers and redraw top values
-        display.fillRect(116 + screenShiftX, 39 + screenShiftY, 45, 16, ST77XX_BLACK);
-        display.fillRect(116 + screenShiftX, 58 + screenShiftY, 45, 16, ST77XX_BLACK);
-        display.fillRect(116 + screenShiftX, 77 + screenShiftY, 45, 16, ST77XX_BLACK);
-
-        display.setTextSize(NORMAL_FONT_SIZE);
-        display.setTextColor(ST77XX_WHITE);
-
-        display.setCursor(116 + screenShiftX, 39 + screenShiftY);
-        display.print((int)(currentPM1 + 0.5f));
-
-        display.setCursor(116 + screenShiftX, 58 + screenShiftY);
-        display.print((int)(currentPM25 + 0.5f));
-
-        display.setCursor(116 + screenShiftX, 77 + screenShiftY);
-        display.print((int)(currentPM10 + 0.5f));
+        if (hasSummary)
+        {
+            drawSummary();
+        }
     }
 
     if (needsGraphRedraw)
@@ -158,11 +191,10 @@ void DisplayController::update()
     }
 }
 
-void DisplayController::showPM(float pm1Concentration, float pm25Concentration, float pm10Concentration)
+void DisplayController::showStats(const AirQualitySummary &summary)
 {
-    currentPM1 = pm1Concentration;
-    currentPM25 = pm25Concentration;
-    currentPM10 = pm10Concentration;
+    currentSummary = summary;
+    hasSummary = true;
     needsPMRedraw = true;
 }
 
@@ -172,11 +204,13 @@ void DisplayController::addGraphSample(float pm1, float pm25, float pm10)
     needsGraphRedraw = true;
 }
 
-void DisplayController::showStatus(const char *timeText, bool wifiConnected, bool bluetoothConnected)
+void DisplayController::showStatus(const char *timeText, bool wifiConnected, bool bluetoothConnected, uint32_t uptimeSeconds)
 {
     currentClock = timeText;
     currentWifiConnected = wifiConnected;
     currentBluetoothConnected = bluetoothConnected;
+    currentUptimeSeconds = uptimeSeconds;
+    drawUptime();
     display.fillRect(234 + screenShiftX, 7 + screenShiftY, 81, 16, ST77XX_BLACK);
     display.setTextSize(SMALL_FONT_SIZE);
     display.setTextColor(ST77XX_WHITE);
@@ -197,31 +231,13 @@ void DisplayController::shiftScreen(int16_t x, int16_t y)
     display.setCursor(BASE_GRAPH_X + screenShiftX, 20 + screenShiftY);
     display.println("Air Quality");
 
-    display.setTextSize(NORMAL_FONT_SIZE);
-    display.setTextColor(ST77XX_CYAN);
-    display.setCursor(BASE_GRAPH_X + screenShiftX, 39 + screenShiftY);
-    display.print("PM1.0:");
-    display.setTextColor(ST77XX_WHITE);
-    display.setCursor(161 + screenShiftX, 39 + screenShiftY);
-    display.print("ug/m3");
-
-    display.setTextColor(ST77XX_YELLOW);
-    display.setCursor(BASE_GRAPH_X + screenShiftX, 58 + screenShiftY);
-    display.print("PM2.5:");
-    display.setTextColor(ST77XX_WHITE);
-    display.setCursor(161 + screenShiftX, 58 + screenShiftY);
-    display.print("ug/m3");
-
-    display.setTextColor(ST77XX_MAGENTA);
-    display.setCursor(BASE_GRAPH_X + screenShiftX, 77 + screenShiftY);
-    display.print("PM10:");
-    display.setTextColor(ST77XX_WHITE);
-    display.setCursor(161 + screenShiftX, 77 + screenShiftY);
-    display.print("ug/m3");
-
     graph.setPosition(BASE_GRAPH_X + screenShiftX, BASE_GRAPH_Y + screenShiftY);
     graph.init(display);
-    showStatus(currentClock.c_str(), currentWifiConnected, currentBluetoothConnected);
-    needsPMRedraw = true;
+    showStatus(currentClock.c_str(), currentWifiConnected, currentBluetoothConnected, currentUptimeSeconds);
+    if (hasSummary)
+    {
+        drawSummary();
+    }
+    needsPMRedraw = hasSummary;
     needsGraphRedraw = true;
 }
