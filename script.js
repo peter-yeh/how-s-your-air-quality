@@ -43,9 +43,10 @@ function receivedData(event) {
         // Show live progress during file download
         if (transferType === 'file' && expectedFileSize > 0) {
             const bytesReceived = new TextEncoder().encode(transfer).length;
-            const mbReceived = (bytesReceived / (1024 * 1024)).toFixed(2);
-            const mbExpected = (expectedFileSize / (1024 * 1024)).toFixed(2);
-            setStatus(`${currentFileName} (${chunkCount} pkts | ${mbReceived}/${mbExpected} MB)`);
+            const kbReceived = (bytesReceived / 1024).toFixed(1);
+            const kbExpected = (expectedFileSize / 1024).toFixed(1);
+            const percent = Math.min(100, Math.round((bytesReceived / expectedFileSize) * 100));
+            setStatus(`${currentFileName} (${chunkCount} pkts | ${percent}% | ${kbReceived}/${kbExpected} KB)`);
         }
 
         if (chunk.includes('\x02')) {

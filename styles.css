@@ -40,7 +40,7 @@ button:not(:disabled):hover {
 }
 
 #brightnessControl {
-    padding: 1rem;
+    padding: .6rem .8rem;
     background: #071512;
     border: 1px solid #29d9ad;
     border-radius: 3px;
@@ -48,16 +48,18 @@ button:not(:disabled):hover {
 }
 
 #brightnessControl label {
-    display: block;
-    margin-bottom: .5rem;
+    display: inline-block;
+    margin-right: 1rem;
     color: #8fffe0;
-    font-size: 14px;
+    font-size: 13px;
 }
 
 .slider-container {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: .75rem;
+    gap: .5rem;
+    flex: 1;
+    min-width: 200px;
 }
 
 input[type="range"] {
