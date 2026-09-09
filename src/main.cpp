@@ -66,17 +66,9 @@ void setup()
 {
   Serial.begin(115200);
   display.begin();
-
-  if (!wireless.begin("AnsonGarden", "66485973", 8 * 60 * 60))
-  {
-    Serial.println("WARNING: Continuing without synchronized time.");
-  }
-
-  if (storage.begin())
-  {
-    storage.testReadWrite();
-  }
-
+  storage.begin();
+  storage.testReadWrite();
+  wireless.begin("AnsonGarden", "66485973", 8 * 60 * 60);
   ble.begin(&storage);
 
   Serial.println("\n--- BMV080 Initializing ---");
@@ -85,7 +77,7 @@ void setup()
     Serial.println("Retrying sensor init in 2s...");
     delay(2000);
   }
-  Serial.println("SUCCESS: BMV080 Connected.");
+  Serial.println("\n--- BMV080 Connected ---");
 
   // Launch sensor & display in a dedicated FreeRTOS task with 32KB stack
   xTaskCreatePinnedToCore(
@@ -98,7 +90,7 @@ void setup()
       1);
 }
 
-void loop()
+void loop() // useless loop just to follow the framework
 {
   vTaskDelay(pdMS_TO_TICKS(1000));
 }
