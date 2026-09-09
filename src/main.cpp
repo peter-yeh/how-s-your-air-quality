@@ -17,11 +17,18 @@ BleServer ble;
 void airQualityTask(void *pvParameters)
 {
   AirQualityStats stats;
-  uint32_t lastStatusUpdate = 0;
+  uint32_t lastDisplayUpdate = 0;
   uint32_t lastBurnInShift = 0;
   uint32_t lastMinuteTick = millis();
   uint8_t shiftIndex = 0;
   constexpr int16_t burnInShifts[] = {0, 5, 0, -5};
+  constexpr uint8_t DISPLAY_FPS = 5;
+  constexpr uint32_t DISPLAY_INTERVAL_MS = 1000 / DISPLAY_FPS;
+
+  float lastPm1 = 0;
+  float lastPm25 = 0;
+  float lastPm10 = 0;
+  bool hasReading = false;
 
   while (true)
   {
@@ -31,14 +38,11 @@ void airQualityTask(void *pvParameters)
 
     if (sensor.read(pm1, pm25, pm10))
     {
-      display.showCurrent(pm1, pm25, pm10);
+      lastPm1 = pm1;
+      lastPm25 = pm25;
+      lastPm10 = pm10;
+      hasReading = true;
       stats.addSample(pm1, pm25, pm10);
-
-      AirQualitySummary summary;
-      if (stats.getSummary(summary))
-      {
-        display.showStats(summary);
-      }
     }
 
     // Every minute: compute average readings, update graph, and save to CSV
@@ -66,10 +70,23 @@ void airQualityTask(void *pvParameters)
       }
     }
 
-    if (millis() - lastStatusUpdate >= 1000)
+    // Push clock and PM readings to the display together so they refresh in sync.
+    if (millis() - lastDisplayUpdate >= DISPLAY_INTERVAL_MS)
     {
+      lastDisplayUpdate = millis();
+
+      if (hasReading)
+      {
+        display.showCurrent(lastPm1, lastPm25, lastPm10);
+
+        AirQualitySummary summary;
+        if (stats.getSummary(summary))
+        {
+          display.showStats(summary);
+        }
+      }
+
       display.showStatus(wireless.clockTime().c_str(), wireless.connected(), ble.connected(), millis() / 1000);
-      lastStatusUpdate = millis();
     }
 
     display.update();
@@ -88,7 +105,7 @@ void setup()
 {
   Serial.begin(115200);
   display.begin();
-  display.setBrightness(128);
+  display.setBrightness(128); // 0–255
   storage.begin();
   storage.testReadWrite();
   wireless.begin("AnsonGarden", "66485973", 8 * 60 * 60);

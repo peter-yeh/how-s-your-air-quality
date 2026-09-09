@@ -1,5 +1,20 @@
 #include "AirQualityStats.h"
 #include <Arduino.h>
+#include <algorithm>
+
+namespace
+{
+    float median(float *sorted, size_t n)
+    {
+        std::sort(sorted, sorted + n);
+        if (n % 2 == 1)
+        {
+            return sorted[n / 2];
+        }
+        return (sorted[n / 2 - 1] + sorted[n / 2]) / 2.0f;
+    }
+}
+
 
 void AirQualityStats::addSample(float pm1, float pm25, float pm10)
 {
@@ -27,6 +42,10 @@ bool AirQualityStats::getSummary(AirQualitySummary &summary) const
     float sumPm10 = 0;
     size_t validCount = 0;
 
+    float validPm1[CAPACITY];
+    float validPm25[CAPACITY];
+    float validPm10[CAPACITY];
+
     for (size_t i = 0; i < count; ++i)
     {
         if (now - samples[i].timestamp <= 60000)
@@ -53,6 +72,9 @@ bool AirQualityStats::getSummary(AirQualitySummary &summary) const
             sumPm1 += samples[i].pm1;
             sumPm25 += samples[i].pm25;
             sumPm10 += samples[i].pm10;
+            validPm1[validCount] = samples[i].pm1;
+            validPm25[validCount] = samples[i].pm25;
+            validPm10[validCount] = samples[i].pm10;
             validCount++;
         }
     }
@@ -65,6 +87,9 @@ bool AirQualityStats::getSummary(AirQualitySummary &summary) const
     summary.averagePm1 = sumPm1 / (float)validCount;
     summary.averagePm25 = sumPm25 / (float)validCount;
     summary.averagePm10 = sumPm10 / (float)validCount;
+    summary.medianPm1 = median(validPm1, validCount);
+    summary.medianPm25 = median(validPm25, validCount);
+    summary.medianPm10 = median(validPm10, validCount);
     return true;
 }
 

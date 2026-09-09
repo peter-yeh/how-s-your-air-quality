@@ -29,13 +29,20 @@ namespace
     uint32_t currentUptimeSeconds = 0;
     bool hasSummary = false;
     bool needsTopBarRedraw = false;
+    bool needsTopBarStaticRedraw = true;
     bool needsPMRedraw = false;
+    bool needsSummaryStaticRedraw = false;
     bool needsGraphRedraw = false;
     int16_t screenShiftX = 0;
     int16_t screenShiftY = 0;
     String currentClock = "--:--:--";
     bool currentWifiConnected = false;
     bool currentBluetoothConnected = false;
+
+    constexpr int16_t SUMMARY_ROW_Y[] = {40, 55, 70};
+    constexpr int16_t SUMMARY_VALUE_COLUMNS[] = {66, 100, 134, 168, 202};
+    const uint16_t SUMMARY_ROW_COLORS[] = {ST77XX_CYAN, ST77XX_YELLOW, ST77XX_MAGENTA};
+    const char *const SUMMARY_ROW_LABELS[] = {"PM1", "PM25", "PM10"};
 
     void drawBluetoothIcon(bool connected);
     void drawWifiIcon(bool connected);
@@ -62,61 +69,89 @@ namespace
         return result;
     }
 
-    void drawTopBar()
+    // Background fill and title only; redrawn once (and after a burn-in shift) to avoid flicker.
+    void drawTopBarStatic()
     {
         display.fillRect(screenShiftX, screenShiftY, 320, 16, ST77XX_BLACK);
         display.setTextSize(SMALL_FONT_SIZE);
         display.setTextColor(ST77XX_WHITE);
+        display.setCursor(127 + screenShiftX, 5 + screenShiftY);
+        display.print("Air Quality");
+    }
+
+    // Uptime, clock, and connection icons; these change often so only their cells are cleared.
+    void drawTopBarDynamic()
+    {
+        display.setTextSize(SMALL_FONT_SIZE);
+        display.setTextColor(ST77XX_WHITE);
+
+        display.fillRect(5 + screenShiftX, 5 + screenShiftY, 70, 8, ST77XX_BLACK);
         display.setCursor(5 + screenShiftX, 5 + screenShiftY);
         display.print(formatUptime(currentUptimeSeconds));
 
-        display.setCursor(127 + screenShiftX, 5 + screenShiftY);
-        display.print("Air Quality");
-
+        display.fillRect(240 + screenShiftX, 5 + screenShiftY, 50, 8, ST77XX_BLACK);
         display.setCursor(240 + screenShiftX, 5 + screenShiftY);
         display.print(currentClock);
+
         drawBluetoothIcon(currentBluetoothConnected);
         drawWifiIcon(currentWifiConnected);
     }
 
-    void drawSummary()
+    // Headers, row labels, and units; static, so only drawn once (and after a burn-in shift).
+    void drawSummaryStatic()
     {
-        display.fillRect(34 + screenShiftX, 29 + screenShiftY, 220, 51, ST77XX_BLACK);
+        display.fillRect(34 + screenShiftX, 29 + screenShiftY, 236, 51, ST77XX_BLACK);
         display.setTextSize(SMALL_FONT_SIZE);
         display.setTextColor(ST77XX_WHITE);
         display.setCursor(66 + screenShiftX, 29 + screenShiftY);
         display.print("Now");
         display.setCursor(100 + screenShiftX, 29 + screenShiftY);
         display.print("Low");
-        display.setCursor(140 + screenShiftX, 29 + screenShiftY);
+        display.setCursor(134 + screenShiftX, 29 + screenShiftY);
+        display.print("Med");
+        display.setCursor(168 + screenShiftX, 29 + screenShiftY);
         display.print("High");
-        display.setCursor(180 + screenShiftX, 29 + screenShiftY);
+        display.setCursor(202 + screenShiftX, 29 + screenShiftY);
         display.print("Avg");
 
-        const int16_t rowY[] = {40, 55, 70};
-        const uint16_t rowColors[] = {ST77XX_CYAN, ST77XX_YELLOW, ST77XX_MAGENTA};
-        const char *labels[] = {"PM1", "PM25", "PM10"};
+        for (uint8_t i = 0; i < 3; ++i)
+        {
+            display.setTextColor(SUMMARY_ROW_COLORS[i]);
+            display.setCursor(36 + screenShiftX, SUMMARY_ROW_Y[i] + screenShiftY);
+            display.print(SUMMARY_ROW_LABELS[i]);
+            display.setTextColor(ST77XX_WHITE);
+            display.setCursor(240 + screenShiftX, SUMMARY_ROW_Y[i] + screenShiftY);
+            display.print("ug/m3");
+        }
+    }
+
+    // Now/Low/Med/High/Avg numbers only; each cell is cleared individually so labels/units don't flash.
+    void drawSummaryValues()
+    {
+        display.setTextSize(SMALL_FONT_SIZE);
+        display.setTextColor(ST77XX_WHITE);
+
         const float currentValues[] = {currentPm1, currentPm25, currentPm10};
         const float lowValues[] = {currentSummary.lowPm1, currentSummary.lowPm25, currentSummary.lowPm10};
+        const float medianValues[] = {currentSummary.medianPm1, currentSummary.medianPm25, currentSummary.medianPm10};
         const float highValues[] = {currentSummary.highPm1, currentSummary.highPm25, currentSummary.highPm10};
         const float averageValues[] = {currentSummary.averagePm1, currentSummary.averagePm25, currentSummary.averagePm10};
 
         for (uint8_t i = 0; i < 3; ++i)
         {
-            display.setTextColor(rowColors[i]);
-            display.setCursor(36 + screenShiftX, rowY[i] + screenShiftY);
-            display.print(labels[i]);
-            display.setTextColor(ST77XX_WHITE);
-            display.setCursor(66 + screenShiftX, rowY[i] + screenShiftY);
-            display.print((int)(currentValues[i] + 0.5f));
-            display.setCursor(100 + screenShiftX, rowY[i] + screenShiftY);
-            display.print((int)(lowValues[i] + 0.5f));
-            display.setCursor(140 + screenShiftX, rowY[i] + screenShiftY);
-            display.print((int)(highValues[i] + 0.5f));
-            display.setCursor(180 + screenShiftX, rowY[i] + screenShiftY);
-            display.print((int)(averageValues[i] + 0.5f));
-            display.setCursor(218 + screenShiftX, rowY[i] + screenShiftY);
-            display.print("ug/m3");
+            const int values[] = {
+                (int)(currentValues[i] + 0.5f),
+                (int)(lowValues[i] + 0.5f),
+                (int)(medianValues[i] + 0.5f),
+                (int)(highValues[i] + 0.5f),
+                (int)(averageValues[i] + 0.5f)};
+
+            for (uint8_t col = 0; col < 5; ++col)
+            {
+                display.fillRect(SUMMARY_VALUE_COLUMNS[col] + screenShiftX, SUMMARY_ROW_Y[i] + screenShiftY, 28, 8, ST77XX_BLACK);
+                display.setCursor(SUMMARY_VALUE_COLUMNS[col] + screenShiftX, SUMMARY_ROW_Y[i] + screenShiftY);
+                display.print(values[col]);
+            }
         }
     }
 
@@ -193,14 +228,25 @@ void DisplayController::update()
 
         if (hasSummary)
         {
-            drawSummary();
+            if (needsSummaryStaticRedraw)
+            {
+                needsSummaryStaticRedraw = false;
+                drawSummaryStatic();
+            }
+            drawSummaryValues();
         }
     }
 
     if (needsTopBarRedraw)
     {
         needsTopBarRedraw = false;
-        drawTopBar();
+
+        if (needsTopBarStaticRedraw)
+        {
+            needsTopBarStaticRedraw = false;
+            drawTopBarStatic();
+        }
+        drawTopBarDynamic();
     }
 
     if (needsGraphRedraw)
@@ -226,6 +272,10 @@ void DisplayController::setBrightness(uint8_t brightness)
 void DisplayController::showStats(const AirQualitySummary &summary)
 {
     currentSummary = summary;
+    if (!hasSummary)
+    {
+        needsSummaryStaticRedraw = true;
+    }
     hasSummary = true;
     needsPMRedraw = true;
 }
@@ -253,12 +303,18 @@ void DisplayController::shiftScreen(int16_t x, int16_t y)
 
     graph.setPosition(BASE_GRAPH_X + screenShiftX, BASE_GRAPH_Y + screenShiftY);
     graph.init(display);
-    showStatus(currentClock.c_str(), currentWifiConnected, currentBluetoothConnected, currentUptimeSeconds);
-    drawTopBar();
+
+    drawTopBarStatic();
+    drawTopBarDynamic();
+    needsTopBarRedraw = false;
+    needsTopBarStaticRedraw = false;
+
     if (hasSummary)
     {
-        drawSummary();
+        drawSummaryStatic();
+        drawSummaryValues();
     }
-    needsPMRedraw = hasSummary;
+    needsPMRedraw = false;
+    needsSummaryStaticRedraw = false;
     needsGraphRedraw = true;
 }

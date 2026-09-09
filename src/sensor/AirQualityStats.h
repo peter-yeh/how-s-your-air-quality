@@ -8,12 +8,15 @@ struct AirQualitySummary
     float lowPm1 = 0;
     float highPm1 = 0;
     float averagePm1 = 0;
+    float medianPm1 = 0;
     float lowPm25 = 0;
     float highPm25 = 0;
     float averagePm25 = 0;
+    float medianPm25 = 0;
     float lowPm10 = 0;
     float highPm10 = 0;
     float averagePm10 = 0;
+    float medianPm10 = 0;
 };
 
 class AirQualityStats
