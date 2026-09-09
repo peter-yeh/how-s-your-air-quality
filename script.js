@@ -90,7 +90,8 @@ function receivedData(event) {
 
 function renderFileList(files) {
     $('fileList').innerHTML = '';
-    for (const file of files) {
+    const sorted = [...files].sort((a, b) => (b.name || b).localeCompare(a.name || a));
+    for (const file of sorted) {
         const filePath = typeof file === 'string' ? file : file.name;
         const fileSize = typeof file === 'object' && file.size !== null ? formatFileSize(file.size) : '';
         const rawSize = typeof file === 'object' && file.size !== null ? file.size : 0;
@@ -134,10 +135,26 @@ async function openFile(name) {
 
 function drawGraph(csv) {
     const rows = csv.trim().split(/\r?\n/).map(row => row.split(','));
-    const points = rows.map(row => ({ time: row[0], pm1: +row[1], pm25: +row[2], pm10: +row[3] })).filter(row => Number.isFinite(row.pm10));
+    let points = rows.map(row => ({ time: row[0], pm1: +row[1], pm25: +row[2], pm10: +row[3] })).filter(row => Number.isFinite(row.pm10));
     if (!points.length) { setStatus('CSV has no readable rows'); return; }
 
-    const pointWidth = 40, leftMargin = 50, rightMargin = 15, topMargin = 15, bottomMargin = 35;
+    // Downsample to max 150 points via averaging
+    if (points.length > 150) {
+        const bucketSize = Math.ceil(points.length / 150);
+        const downsampled = [];
+        for (let i = 0; i < points.length; i += bucketSize) {
+            const bucket = points.slice(i, i + bucketSize);
+            downsampled.push({
+                time: bucket[0].time,
+                pm1: bucket.reduce((s, p) => s + p.pm1, 0) / bucket.length,
+                pm25: bucket.reduce((s, p) => s + p.pm25, 0) / bucket.length,
+                pm10: bucket.reduce((s, p) => s + p.pm10, 0) / bucket.length
+            });
+        }
+        points = downsampled;
+    }
+
+    const pointWidth = 40, leftMargin = 70, rightMargin = 15, topMargin = 20, bottomMargin = 50;
     const width = Math.max(900, leftMargin + rightMargin + points.length * pointWidth);
     const canvas = $('graph');
     canvas.width = width;
@@ -145,30 +162,69 @@ function drawGraph(csv) {
     const height = canvas.height;
     context.clearRect(0, 0, width, height);
 
-    const max = Math.max(10, ...points.flatMap(point => [point.pm1, point.pm25, point.pm10]));
+    const allValues = points.flatMap(p => [p.pm1, p.pm25, p.pm10]);
+    const max = Math.max(10, ...allValues);
+    const sorted = [...allValues].sort((a, b) => a - b);
+    const median = sorted[Math.floor(sorted.length / 2)];
+    const graphHeight = height - topMargin - bottomMargin;
+
+    // Draw axes
     context.strokeStyle = '#aac0ca';
+    context.lineWidth = 1;
     context.beginPath();
     context.moveTo(leftMargin, topMargin);
     context.lineTo(leftMargin, height - bottomMargin);
     context.lineTo(width - rightMargin, height - bottomMargin);
     context.stroke();
 
+    // Y-axis labels (0, median, max)
+    context.fillStyle = '#666';
+    context.font = '12px monospace';
+    context.textAlign = 'right';
+    [0, median, max].forEach(val => {
+        const y = height - bottomMargin - (val / max) * graphHeight;
+        context.fillText(Math.round(val), leftMargin - 8, y + 4);
+    });
+
+    // Axis labels
+    context.fillStyle = '#8fffe0';
+    context.textAlign = 'center';
+    context.font = '13px system-ui';
+    context.fillText('Time (hours:minutes)', width / 2, height - 8);
+    context.save();
+    context.translate(15, height / 2);
+    context.rotate(-Math.PI / 2);
+    context.fillText('PM Concentration (µg/m³)', 0, 0);
+    context.restore();
+
+    // Plot lines
+    context.lineWidth = 2;
     [['pm1', '#168aad'], ['pm25', '#ee6c4d'], ['pm10', '#293241']].forEach(([key, color]) => {
         context.strokeStyle = color;
         context.beginPath();
         points.forEach((point, index) => {
-            const x = leftMargin + index * pointWidth, y = height - bottomMargin - point[key] * (height - topMargin - bottomMargin) / max;
+            const x = leftMargin + index * pointWidth;
+            const y = height - bottomMargin - (point[key] / max) * graphHeight;
             index ? context.lineTo(x, y) : context.moveTo(x, y);
         });
         context.stroke();
     });
 
+    // X-axis time labels (every ~8th point, showing HH:MM)
     context.fillStyle = '#d7fff4';
-    context.fillText(`0 - ${max.toFixed(0)} ug/m3`, 5, 15);
-    points.forEach((point, index) => context.fillText(point.time || '', leftMargin + index * pointWidth - 15, height - 12));
+    context.font = '11px monospace';
+    context.textAlign = 'center';
+    const step = Math.ceil(points.length / 8);
+    points.forEach((point, index) => {
+        if (index % step === 0 || index === points.length - 1) {
+            const x = leftMargin + index * pointWidth;
+            const timeStr = point.time.split(' ')[1]?.slice(0, 5) || point.time;
+            context.fillText(timeStr, x, height - 20);
+        }
+    });
+
     setStatus(`CSV loaded: ${points.length} reading(s)`);
 }
-
 
 $('ConnectESP32').onclick = async () => {
     try {
@@ -229,5 +285,3 @@ $('brightnessSlider').addEventListener('input', async (event) => {
         }
     }
 });
-
-
