@@ -21,7 +21,8 @@ GraphPlotter::GraphPlotter(int16_t x, int16_t y, int16_t w, int16_t h, float max
 int16_t GraphPlotter::mapY(float val) const
 {
     float clamped = constrain(val, minScale, maxScale);
-    return (originY + height) - (int16_t)(((clamped - minScale) / (maxScale - minScale)) * height);
+    int32_t yOffset = (int32_t)(((clamped - minScale) / (maxScale - minScale)) * height);
+    return (int32_t)originY + height - yOffset;
 }
 
 void GraphPlotter::drawGrid(Adafruit_GFX &display)
@@ -226,8 +227,8 @@ void GraphPlotter::draw(Adafruit_GFX &display)
     // Progressive zoom: use actual historyCount instead of MAX_HISTORY for spacing
     for (uint8_t i = 1; i < historyCount; ++i)
     {
-        int16_t x1 = originX + (int32_t)(i - 1) * width / (historyCount - 1);
-        int16_t x2 = originX + (int32_t)i * width / (historyCount - 1);
+        int16_t x1 = originX + width - (int32_t)(i - 1) * width / (historyCount - 1);
+        int16_t x2 = originX + width - (int32_t)i * width / (historyCount - 1);
 
         display.drawLine(x1, mapY(historyPM1[i - 1]), x2, mapY(historyPM1[i]), COLOR_PM1);
         display.drawLine(x1, mapY(historyPM25[i - 1]), x2, mapY(historyPM25[i]), COLOR_PM25);
