@@ -103,45 +103,47 @@ void GraphPlotter::drawTimeLabels(Adafruit_GFX &display)
     // Clear the bottom time label area
     display.fillRect(originX - 10, originY + height + 4, width + 30, 10, ST77XX_BLACK);
 
-    // Left label (newest - now)
+    // Calculate total time span in seconds: each sample is 2 seconds apart
+    uint16_t totalSeconds = (historyCount - 1) * 2;
+
+    // Left label (oldest - full time span)
     display.setCursor(originX - 2, originY + height + 4);
-    display.print("now");
+    if (totalSeconds >= 60)
+    {
+        display.print("-");
+        display.print(totalSeconds / 60);
+        display.print("m");
+    }
+    else
+    {
+        display.print("-");
+        display.print(totalSeconds);
+        display.print("s");
+    }
 
-    // Middle label
-    uint16_t midTime = (getTimeLabel(0, false) / 2);
+    // Middle label (half the time span)
+    uint16_t midSeconds = totalSeconds / 2;
     display.setCursor(originX + width / 2 - 8, originY + height + 4);
-    if (midTime >= 60)
+    if (midSeconds >= 60)
     {
         display.print("-");
-        display.print(midTime / 60);
-        display.print("h");
-    }
-    else if (midTime > 0)
-    {
-        display.print("-");
-        display.print(midTime);
+        display.print(midSeconds / 60);
         display.print("m");
+    }
+    else if (midSeconds > 0)
+    {
+        display.print("-");
+        display.print(midSeconds);
+        display.print("s");
     }
     else
     {
-        display.print("0m");
+        display.print("0s");
     }
 
-    // Right label (oldest)
-    uint16_t rightTime = getTimeLabel(0, false);
+    // Right label (newest - now)
     display.setCursor(originX + width - 14, originY + height + 4);
-    if (rightTime >= 60)
-    {
-        display.print("-");
-        display.print(rightTime / 60);
-        display.print("h");
-    }
-    else
-    {
-        display.print("-");
-        display.print(rightTime);
-        display.print("m");
-    }
+    display.print("now");
 }
 
 void GraphPlotter::collapse()
@@ -225,10 +227,11 @@ void GraphPlotter::draw(Adafruit_GFX &display)
 
     // Draw lines connecting consecutive points
     // Progressive zoom: use actual historyCount instead of MAX_HISTORY for spacing
+    // index 0 (oldest) is drawn at the left, newest at the right
     for (uint8_t i = 1; i < historyCount; ++i)
     {
-        int16_t x1 = originX + width - (int32_t)(i - 1) * width / (historyCount - 1);
-        int16_t x2 = originX + width - (int32_t)i * width / (historyCount - 1);
+        int16_t x1 = originX + (int32_t)(i - 1) * width / (historyCount - 1);
+        int16_t x2 = originX + (int32_t)i * width / (historyCount - 1);
 
         display.drawLine(x1, mapY(historyPM1[i - 1]), x2, mapY(historyPM1[i]), COLOR_PM1);
         display.drawLine(x1, mapY(historyPM25[i - 1]), x2, mapY(historyPM25[i]), COLOR_PM25);
