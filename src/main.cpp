@@ -18,12 +18,14 @@ void airQualityTask(void *pvParameters)
 {
   AirQualityStats stats;
   uint32_t lastDisplayUpdate = 0;
+  uint32_t lastGraphUpdate = 0;
   uint32_t lastBurnInShift = 0;
   uint32_t lastMinuteTick = millis();
   uint8_t shiftIndex = 0;
   constexpr int16_t burnInShifts[] = {0, 5, 0, -5};
   constexpr uint8_t DISPLAY_FPS = 5;
   constexpr uint32_t DISPLAY_INTERVAL_MS = 1000 / DISPLAY_FPS;
+  constexpr uint32_t GRAPH_UPDATE_INTERVAL_MS = 2000; // Add graph sample every 2 seconds
 
   float lastPm1 = 0;
   float lastPm25 = 0;
@@ -43,7 +45,14 @@ void airQualityTask(void *pvParameters)
       stats.addSample(pm1, pm25, pm10);
     }
 
-    // Every minute: compute average readings, update graph, and save to CSV
+    // Add graph sample every 2 seconds - starts immediately when data is available
+    if (millis() - lastGraphUpdate >= GRAPH_UPDATE_INTERVAL_MS)
+    {
+      lastGraphUpdate = millis();
+      display.addGraphSample(lastPm1, lastPm25, lastPm10);
+    }
+
+    // Every minute: save averaged readings to CSV for historical data
     if (millis() - lastMinuteTick >= 60000)
     {
       lastMinuteTick = millis();
@@ -62,8 +71,6 @@ void airQualityTask(void *pvParameters)
           reading.pm10 = summary.averagePm10;
           storage.saveReading(reading);
         }
-
-        display.addGraphSample(summary.averagePm1, summary.averagePm25, summary.averagePm10);
         stats.clear();
       }
     }

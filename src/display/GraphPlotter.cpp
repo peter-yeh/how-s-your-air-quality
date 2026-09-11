@@ -103,21 +103,9 @@ void GraphPlotter::drawTimeLabels(Adafruit_GFX &display)
     // Clear the bottom time label area
     display.fillRect(originX - 10, originY + height + 4, width + 30, 10, ST77XX_BLACK);
 
-    // Left label (oldest)
-    uint16_t leftTime = getTimeLabel(0, false);
+    // Left label (newest - now)
     display.setCursor(originX - 2, originY + height + 4);
-    if (leftTime >= 60)
-    {
-        display.print("-");
-        display.print(leftTime / 60);
-        display.print("h");
-    }
-    else
-    {
-        display.print("-");
-        display.print(leftTime);
-        display.print("m");
-    }
+    display.print("now");
 
     // Middle label
     uint16_t midTime = (getTimeLabel(0, false) / 2);
@@ -139,9 +127,21 @@ void GraphPlotter::drawTimeLabels(Adafruit_GFX &display)
         display.print("0m");
     }
 
-    // Right label (newest)
+    // Right label (oldest)
+    uint16_t rightTime = getTimeLabel(0, false);
     display.setCursor(originX + width - 14, originY + height + 4);
-    display.print("now");
+    if (rightTime >= 60)
+    {
+        display.print("-");
+        display.print(rightTime / 60);
+        display.print("h");
+    }
+    else
+    {
+        display.print("-");
+        display.print(rightTime);
+        display.print("m");
+    }
 }
 
 void GraphPlotter::collapse()
