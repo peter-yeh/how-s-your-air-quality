@@ -6,8 +6,7 @@
 class GraphPlotter
 {
 public:
-    static constexpr uint8_t MAX_HISTORY = 120; // Collect up to 120 points
-    static constexpr uint8_t MIN_HISTORY = 80;  // Collapse to 80 when reaching 120
+    static constexpr uint8_t CAPACITY = 120; // Collect up to 120 points, then collapse to half
 
     GraphPlotter(int16_t x = 36, int16_t y = 96, int16_t w = 261, int16_t h = 120, float maxVal = 100.0f);
 
@@ -18,6 +17,13 @@ public:
     void reset();
 
 private:
+    struct Point
+    {
+        float pm1;
+        float pm25;
+        float pm10;
+    };
+
     int16_t mapY(float val) const;
     void drawGrid(Adafruit_GFX &display);
     void updateScale();
@@ -35,8 +41,6 @@ private:
     float maxScale;
     uint16_t timeUnitMinutes; // Current time per data point
 
-    float historyPM1[MAX_HISTORY];
-    float historyPM25[MAX_HISTORY];
-    float historyPM10[MAX_HISTORY];
+    Point history[CAPACITY];
     uint8_t historyCount = 0;
 };

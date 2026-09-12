@@ -5,6 +5,7 @@
 #include "display/Display.h"
 #include "storage/Storage.h"
 #include "sensor/Sensor.h"
+#include "sensor/RollingWindow.h"
 #include "wireless/Wireless.h"
 #include "wireless/BleServer.h"
 
@@ -14,8 +15,88 @@ SensorController sensor;
 WirelessController wireless;
 BleServer ble;
 
+class RollingWindow
+{
+public:
+  static constexpr size_t CAPACITY = 60;
+
+  void addSample(float pm1, float pm25, float pm10)
+  {
+    samples[head].pm1 = pm1;
+    samples[head].pm25 = pm25;
+    samples[head].pm10 = pm10;
+    samples[head].timestamp = millis();
+    head = (head + 1) % CAPACITY;
+    if (count < CAPACITY)
+    {
+      count++;
+    }
+  }
+
+  bool getAverage(float &avgPm1, float &avgPm25, float &avgPm10) const
+  {
+    if (count == 0)
+    {
+      return false;
+    }
+
+    const uint32_t now = millis();
+    float sum1 = 0;
+    float sum25 = 0;
+    float sum10 = 0;
+    size_t validCount = 0;
+
+    for (size_t i = 0; i < count; ++i)
+    {
+      // Include samples collected within the 1-minute window
+      if (now - samples[i].timestamp <= 61000)
+      {
+        sum1 += samples[i].pm1;
+        sum25 += samples[i].pm25;
+        sum10 += samples[i].pm10;
+        validCount++;
+      }
+    }
+
+    if (validCount == 0)
+    {
+      return false;
+    }
+
+    avgPm1 = sum1 / (float)validCount;
+    avgPm25 = sum25 / (float)validCount;
+    avgPm10 = sum10 / (float)validCount;
+    return true;
+  }
+
+  void clear()
+  {
+    head = 0;
+    count = 0;
+  }
+
+  size_t getCount() const
+  {
+    return count;
+  }
+
+private:
+  struct Sample
+  {
+    float pm1 = 0;
+    float pm25 = 0;
+    float pm10 = 0;
+    uint32_t timestamp = 0;
+  } samples[CAPACITY];
+
+  size_t head = 0;
+  size_t count = 0;
+};
+
 void airQualityTask(void *pvParameters)
 {
+  RollingWindow window;
+  uint32_t lastStatusUpdate = 0;
   AirQualityStats stats;
   uint32_t lastDisplayUpdate = 0;
   uint32_t lastGraphUpdate = 0;
@@ -39,12 +120,16 @@ void airQualityTask(void *pvParameters)
 
     if (sensor.read(pm1, pm25, pm10))
     {
+      // Real-time PM readings on the display update every second
+      display.showPM(pm1, pm25, pm10);
+      window.addSample(pm1, pm25, pm10);
       lastPm1 = pm1;
       lastPm25 = pm25;
       lastPm10 = pm10;
       stats.addSample(pm1, pm25, pm10);
     }
 
+    // Every minute: compute average readings, update graph, and save to CSV
     // Add graph sample every 2 seconds - starts immediately when data is available
     if (millis() - lastGraphUpdate >= GRAPH_UPDATE_INTERVAL_MS)
     {
@@ -57,47 +142,61 @@ void airQualityTask(void *pvParameters)
     {
       lastMinuteTick = millis();
 
+      float avgPm1 = 0;
+      float avgPm25 = 0;
+      float avgPm10 = 0;
       AirQualitySummary summary;
 
-      if (stats.getSummary(summary))
-      {
-        const String readingTime = wireless.currentTime();
-        if (readingTime != "time unavailable")
+      if (window.getAverage(avgPm1, avgPm25, avgPm10))
+        if (stats.getSummary(summary))
         {
-          Reading reading;
-          reading.time = readingTime;
-          reading.pm1 = summary.averagePm1;
-          reading.pm25 = summary.averagePm25;
-          reading.pm10 = summary.averagePm10;
-          storage.saveReading(reading);
+          const String readingTime = wireless.currentTime();
+          if (readingTime != "time unavailable")
+          {
+            Reading reading;
+            reading.time = readingTime;
+            reading.pm1 = avgPm1;
+            reading.pm25 = avgPm25;
+            reading.pm10 = avgPm10;
+            reading.pm1 = summary.averagePm1;
+            reading.pm25 = summary.averagePm25;
+            reading.pm10 = summary.averagePm10;
+            storage.saveReading(reading);
+          }
+
+          display.addGraphSample(avgPm1, avgPm25, avgPm10);
+          window.clear();
+          stats.clear();
         }
-        stats.clear();
-      }
     }
 
-    // Push clock and PM readings to the display together so they refresh in sync.
-    if (millis() - lastDisplayUpdate >= DISPLAY_INTERVAL_MS)
-    {
-      lastDisplayUpdate = millis();
-
-      display.showCurrent(lastPm1, lastPm25, lastPm10);
-
-      AirQualitySummary summary;
-      if (stats.getSummary(summary))
+    if (millis() - lastStatusUpdate >= 1000)
+      // Push clock and PM readings to the display together so they refresh in sync.
+      if (millis() - lastDisplayUpdate >= DISPLAY_INTERVAL_MS)
       {
-        display.showStats(summary);
-      }
+        display.showStatus(wireless.clockTime().c_str(), wireless.connected(), ble.connected());
+        lastStatusUpdate = millis();
+        lastDisplayUpdate = millis();
 
-      display.showStatus(wireless.clockTime().c_str(), wireless.connected(), ble.connected(), millis() / 1000);
-    }
+        display.showCurrent(lastPm1, lastPm25, lastPm10);
+
+        AirQualitySummary summary;
+        if (stats.getSummary(summary))
+        {
+          display.showStats(summary);
+        }
+
+        display.showStatus(wireless.clockTime().c_str(), wireless.connected(), ble.connected(), millis() / 1000);
+      }
 
     display.update();
-    if (millis() - lastBurnInShift >= 60000)
-    {
-      shiftIndex = (shiftIndex + 1) % 4;
-      display.shiftScreen(burnInShifts[shiftIndex], 0);
-      lastBurnInShift = millis();
-    }
+    if (millis() - lastBurnInShift >= 30000)
+      if (millis() - lastBurnInShift >= 60000)
+      {
+        shiftIndex = (shiftIndex + 1) % 4;
+        display.shiftScreen(burnInShifts[shiftIndex], 0);
+        lastBurnInShift = millis();
+      }
 
     vTaskDelay(pdMS_TO_TICKS(100));
   }
@@ -115,6 +214,7 @@ void setup()
   display.setBrightness(brightness);
 
   wireless.begin("AnsonGarden", "66485973", 8 * 60 * 60);
+  ble.begin(&storage);
   ble.begin(&storage, &display);
 
   Serial.println("\n--- BMV080 Initializing ---");

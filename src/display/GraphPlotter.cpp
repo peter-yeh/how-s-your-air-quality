@@ -48,11 +48,11 @@ void GraphPlotter::init(Adafruit_GFX &display)
 
 void GraphPlotter::updateScale()
 {
-    float largest = historyPM1[0];
+    float largest = history[0].pm1;
 
     for (uint8_t i = 0; i < historyCount; ++i)
     {
-        largest = max(largest, max(historyPM1[i], max(historyPM25[i], historyPM10[i])));
+        largest = max(largest, max(history[i].pm1, max(history[i].pm25, history[i].pm10)));
     }
 
     minScale = 0.0f;
@@ -148,17 +148,17 @@ void GraphPlotter::drawTimeLabels(Adafruit_GFX &display)
 
 void GraphPlotter::collapse()
 {
-    // Average consecutive pairs to reduce from MAX_HISTORY to MIN_HISTORY
-    for (uint8_t i = 0; i < MIN_HISTORY; ++i)
+    // Average consecutive pairs to halve the point count, doubling the time each point covers
+    constexpr uint8_t HALF = CAPACITY / 2;
+    for (uint8_t i = 0; i < HALF; ++i)
     {
-        uint8_t srcIdx = i * 2; // Source pairs: 0-1, 2-3, 4-5, etc.
-        historyPM1[i] = (historyPM1[srcIdx] + historyPM1[srcIdx + 1]) / 2.0f;
-        historyPM25[i] = (historyPM25[srcIdx] + historyPM25[srcIdx + 1]) / 2.0f;
-        historyPM10[i] = (historyPM10[srcIdx] + historyPM10[srcIdx + 1]) / 2.0f;
+        const Point &a = history[i * 2];
+        const Point &b = history[i * 2 + 1];
+        history[i] = {(a.pm1 + b.pm1) * 0.5f, (a.pm25 + b.pm25) * 0.5f, (a.pm10 + b.pm10) * 0.5f};
     }
 
-    historyCount = MIN_HISTORY;
-    timeUnitMinutes *= 2; // Each point now represents 2 minutes instead of 1
+    historyCount = HALF;
+    timeUnitMinutes *= 2;
 }
 
 void GraphPlotter::setPosition(int16_t x, int16_t y)
@@ -169,35 +169,12 @@ void GraphPlotter::setPosition(int16_t x, int16_t y)
 
 void GraphPlotter::addSample(float pm1, float pm25, float pm10)
 {
-    if (historyCount < MAX_HISTORY)
+    if (historyCount == CAPACITY)
     {
-        historyPM1[historyCount] = pm1;
-        historyPM25[historyCount] = pm25;
-        historyPM10[historyCount] = pm10;
-        historyCount++;
+        collapse(); // free up half the array before writing, so we never touch history[CAPACITY]
     }
-    else if (historyCount == MAX_HISTORY)
-    {
-        // Add one more sample to reach MAX_HISTORY, then collapse
-        historyPM1[historyCount] = pm1;
-        historyPM25[historyCount] = pm25;
-        historyPM10[historyCount] = pm10;
-        historyCount++;
-        collapse();
-    }
-    else
-    {
-        // We've collapsed, now shift and add like normal (but with larger time steps)
-        for (uint8_t i = 0; i < MIN_HISTORY - 1; ++i)
-        {
-            historyPM1[i] = historyPM1[i + 1];
-            historyPM25[i] = historyPM25[i + 1];
-            historyPM10[i] = historyPM10[i + 1];
-        }
-        historyPM1[MIN_HISTORY - 1] = pm1;
-        historyPM25[MIN_HISTORY - 1] = pm25;
-        historyPM10[MIN_HISTORY - 1] = pm10;
-    }
+
+    history[historyCount++] = {pm1, pm25, pm10};
 }
 
 void GraphPlotter::draw(Adafruit_GFX &display)
@@ -219,23 +196,23 @@ void GraphPlotter::draw(Adafruit_GFX &display)
 
     if (historyCount == 1)
     {
-        display.drawPixel(originX, mapY(historyPM1[0]), COLOR_PM1);
-        display.drawPixel(originX, mapY(historyPM25[0]), COLOR_PM25);
-        display.drawPixel(originX, mapY(historyPM10[0]), COLOR_PM10);
+        display.drawPixel(originX, mapY(history[0].pm1), COLOR_PM1);
+        display.drawPixel(originX, mapY(history[0].pm25), COLOR_PM25);
+        display.drawPixel(originX, mapY(history[0].pm10), COLOR_PM10);
         return;
     }
 
     // Draw lines connecting consecutive points
-    // Progressive zoom: use actual historyCount instead of MAX_HISTORY for spacing
+    // Progressive zoom: use actual historyCount instead of CAPACITY for spacing
     // index 0 (oldest) is drawn at the left, newest at the right
     for (uint8_t i = 1; i < historyCount; ++i)
     {
         int16_t x1 = originX + (int32_t)(i - 1) * width / (historyCount - 1);
         int16_t x2 = originX + (int32_t)i * width / (historyCount - 1);
 
-        display.drawLine(x1, mapY(historyPM1[i - 1]), x2, mapY(historyPM1[i]), COLOR_PM1);
-        display.drawLine(x1, mapY(historyPM25[i - 1]), x2, mapY(historyPM25[i]), COLOR_PM25);
-        display.drawLine(x1, mapY(historyPM10[i - 1]), x2, mapY(historyPM10[i]), COLOR_PM10);
+        display.drawLine(x1, mapY(history[i - 1].pm1), x2, mapY(history[i].pm1), COLOR_PM1);
+        display.drawLine(x1, mapY(history[i - 1].pm25), x2, mapY(history[i].pm25), COLOR_PM25);
+        display.drawLine(x1, mapY(history[i - 1].pm10), x2, mapY(history[i].pm10), COLOR_PM10);
     }
 }
 
