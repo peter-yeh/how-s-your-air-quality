@@ -45,14 +45,6 @@ void airQualityTask(void *pvParameters)
       stats.addSample(pm1, pm25, pm10);
     }
 
-    // Every minute: compute average readings, update graph, and save to CSV
-    // Add graph sample every 2 seconds - starts immediately when data is available
-    if (millis() - lastGraphUpdate >= GRAPH_UPDATE_INTERVAL_MS)
-    {
-      lastGraphUpdate = millis();
-      display.addGraphSample(lastPm1, lastPm25, lastPm10);
-    }
-
     // Every minute: save averaged readings to CSV for historical data
     if (millis() - lastMinuteTick >= 60000)
     {
@@ -77,10 +69,17 @@ void airQualityTask(void *pvParameters)
       }
     }
 
-    // Push clock and PM readings to the display together so they refresh in sync.
+    // Push clock, PM readings, and graph sample to the display together, then
+    // paint them in the same update() pass so they refresh in the same tick.
     if (millis() - lastDisplayUpdate >= DISPLAY_INTERVAL_MS)
     {
       lastDisplayUpdate = millis();
+
+      if (millis() - lastGraphUpdate >= GRAPH_UPDATE_INTERVAL_MS)
+      {
+        lastGraphUpdate = millis();
+        display.addGraphSample(lastPm1, lastPm25, lastPm10);
+      }
 
       display.showCurrent(lastPm1, lastPm25, lastPm10);
 
@@ -91,16 +90,16 @@ void airQualityTask(void *pvParameters)
       }
 
       display.showStatus(wireless.clockTime().c_str(), wireless.connected(), ble.connected(), millis() / 1000);
+
+      display.update();
     }
 
-    display.update();
-    if (millis() - lastBurnInShift >= 30000)
-      if (millis() - lastBurnInShift >= 60000)
-      {
-        shiftIndex = (shiftIndex + 1) % 4;
-        display.shiftScreen(burnInShifts[shiftIndex], 0);
-        lastBurnInShift = millis();
-      }
+    if (millis() - lastBurnInShift >= 60000)
+    {
+      shiftIndex = (shiftIndex + 1) % 4;
+      display.shiftScreen(burnInShifts[shiftIndex], 0);
+      lastBurnInShift = millis();
+    }
 
     vTaskDelay(pdMS_TO_TICKS(100));
   }

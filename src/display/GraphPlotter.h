@@ -29,14 +29,13 @@ private:
     void updateScale();
     void drawScaleLabels(Adafruit_GFX &display);
     void drawTimeLabels(Adafruit_GFX &display);
+    void drawPlaceholder(Adafruit_GFX &display);
     void collapse();
-    uint16_t getTimeLabel(uint8_t index, bool isEnd = false) const;
 
     int16_t originX;
     int16_t originY;
     int16_t width;
     int16_t height;
-    int16_t stepX;
     float minScale;
     float maxScale;
     uint16_t timeUnitMinutes; // Current time per data point

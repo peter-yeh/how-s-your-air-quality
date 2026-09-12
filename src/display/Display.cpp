@@ -31,7 +31,7 @@ namespace
     bool needsTopBarRedraw = false;
     bool needsTopBarStaticRedraw = true;
     bool needsPMRedraw = false;
-    bool needsSummaryStaticRedraw = false;
+    bool needsSummaryStaticRedraw = true;
     bool needsGraphRedraw = false;
     int16_t screenShiftX = 0;
     int16_t screenShiftY = 0;
@@ -126,6 +126,7 @@ namespace
     }
 
     // Now/Low/Med/High/Avg numbers only; each cell is cleared individually so labels/units don't flash.
+    // Prints "--" placeholders until the first stats summary is available.
     void drawSummaryValues()
     {
         display.setTextSize(SMALL_FONT_SIZE);
@@ -150,7 +151,14 @@ namespace
             {
                 display.fillRect(SUMMARY_VALUE_COLUMNS[col] + screenShiftX, SUMMARY_ROW_Y[i] + screenShiftY, 28, 8, ST77XX_BLACK);
                 display.setCursor(SUMMARY_VALUE_COLUMNS[col] + screenShiftX, SUMMARY_ROW_Y[i] + screenShiftY);
-                display.print(values[col]);
+                if (hasSummary)
+                {
+                    display.print(values[col]);
+                }
+                else
+                {
+                    display.print("--");
+                }
             }
         }
     }
@@ -210,11 +218,16 @@ void DisplayController::begin()
     display.setRotation(3);
     display.fillScreen(ST77XX_BLACK);
 
+    // Seed placeholder state so the whole layout is visible immediately,
+    // rather than staying blank until the first sensor/clock tick arrives.
     showStatus("--:--:--", false, false, 0);
+    showCurrent(0, 0, 0);
 
-    // Initialize graph frame, scale, and grid
     graph.setPosition(BASE_GRAPH_X, BASE_GRAPH_Y);
     graph.init(display);
+    needsGraphRedraw = true;
+
+    update();
 
     lastUpdateMs = millis();
     Serial.println("Display initialized.");
@@ -226,15 +239,12 @@ void DisplayController::update()
     {
         needsPMRedraw = false;
 
-        if (hasSummary)
+        if (needsSummaryStaticRedraw)
         {
-            if (needsSummaryStaticRedraw)
-            {
-                needsSummaryStaticRedraw = false;
-                drawSummaryStatic();
-            }
-            drawSummaryValues();
+            needsSummaryStaticRedraw = false;
+            drawSummaryStatic();
         }
+        drawSummaryValues();
     }
 
     if (needsTopBarRedraw)
@@ -272,10 +282,6 @@ void DisplayController::setBrightness(uint8_t brightness)
 void DisplayController::showStats(const AirQualitySummary &summary)
 {
     currentSummary = summary;
-    if (!hasSummary)
-    {
-        needsSummaryStaticRedraw = true;
-    }
     hasSummary = true;
     needsPMRedraw = true;
 }
@@ -309,12 +315,11 @@ void DisplayController::shiftScreen(int16_t x, int16_t y)
     needsTopBarRedraw = false;
     needsTopBarStaticRedraw = false;
 
-    if (hasSummary)
-    {
-        drawSummaryStatic();
-        drawSummaryValues();
-    }
+    drawSummaryStatic();
+    drawSummaryValues();
     needsPMRedraw = false;
     needsSummaryStaticRedraw = false;
-    needsGraphRedraw = true;
+
+    graph.draw(display);
+    needsGraphRedraw = false;
 }

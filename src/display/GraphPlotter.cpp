@@ -13,7 +13,7 @@ namespace
 }
 
 GraphPlotter::GraphPlotter(int16_t x, int16_t y, int16_t w, int16_t h, float maxVal)
-    : originX(x), originY(y), width(w), height(h), stepX(0), minScale(0), maxScale(maxVal),
+    : originX(x), originY(y), width(w), height(h), minScale(0), maxScale(maxVal),
       timeUnitMinutes(1), historyCount(0)
 {
 }
@@ -75,24 +75,6 @@ void GraphPlotter::drawScaleLabels(Adafruit_GFX &display)
     display.print((int)((minScale + maxScale) / 2.0f));
     display.setCursor(originX - 18, originY + height - 4);
     display.print((int)minScale);
-}
-
-uint16_t GraphPlotter::getTimeLabel(uint8_t index, bool isEnd) const
-{
-    // Calculate time in minutes from the reference point
-    // index 0 is oldest, historyCount-1 is newest
-    uint16_t minutesAgo;
-
-    if (isEnd)
-    {
-        minutesAgo = 0; // "now"
-    }
-    else
-    {
-        minutesAgo = (historyCount - 1) * timeUnitMinutes;
-    }
-
-    return minutesAgo;
 }
 
 void GraphPlotter::drawTimeLabels(Adafruit_GFX &display)
@@ -187,6 +169,7 @@ void GraphPlotter::draw(Adafruit_GFX &display)
 
     if (historyCount == 0)
     {
+        drawPlaceholder(display);
         return;
     }
 
@@ -220,4 +203,16 @@ void GraphPlotter::reset()
 {
     historyCount = 0;
     timeUnitMinutes = 1;
+}
+
+void GraphPlotter::drawPlaceholder(Adafruit_GFX &display)
+{
+    static const char *const MESSAGE = "No data yet";
+    constexpr int16_t CHAR_WIDTH = 6; // 6px per character at text size 1
+    constexpr int16_t textWidth = 11 * CHAR_WIDTH;
+
+    display.setTextSize(1);
+    display.setTextColor(COLOR_BORDER);
+    display.setCursor(originX + (width - textWidth) / 2, originY + height / 2 - 4);
+    display.print(MESSAGE);
 }
