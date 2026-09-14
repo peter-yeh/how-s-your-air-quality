@@ -285,3 +285,19 @@ $('brightnessSlider').addEventListener('input', async (event) => {
         }
     }
 });
+
+// Graph mode radio buttons handler
+document.querySelectorAll('input[name="graphMode"]').forEach(radio => {
+    radio.addEventListener('change', async (event) => {
+        const mode = event.target.value;
+        console.log(`[graphMode] Sending SetGraphMode: ${mode}`);
+        if (commandCharacteristic) {
+            try {
+                await commandCharacteristic.writeValue(new TextEncoder().encode(`SetGraphMode:${mode}`));
+                console.log('[graphMode] SetGraphMode command sent');
+            } catch (error) {
+                console.error('[graphMode] Error sending graph mode:', error);
+            }
+        }
+    });
+});

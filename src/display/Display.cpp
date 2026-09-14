@@ -279,6 +279,12 @@ void DisplayController::setBrightness(uint8_t brightness)
     analogWrite(TFT_BL, brightness);
 }
 
+void DisplayController::setGraphMode(int mode)
+{
+    graph.setMode(static_cast<GraphPlotter::Mode>(mode));
+    needsGraphRedraw = true;
+}
+
 void DisplayController::showStats(const AirQualitySummary &summary)
 {
     currentSummary = summary;
@@ -288,8 +294,10 @@ void DisplayController::showStats(const AirQualitySummary &summary)
 
 void DisplayController::addGraphSample(float pm1, float pm25, float pm10)
 {
-    graph.addSample(pm1, pm25, pm10);
-    needsGraphRedraw = true;
+    if (graph.addSample(pm1, pm25, pm10))
+    {
+        needsGraphRedraw = true;
+    }
 }
 
 void DisplayController::showStatus(const char *timeText, bool wifiConnected, bool bluetoothConnected, uint32_t uptimeSeconds)

@@ -25,7 +25,7 @@ void airQualityTask(void *pvParameters)
   constexpr int16_t burnInShifts[] = {0, 5, 0, -5};
   constexpr uint8_t DISPLAY_FPS = 5;
   constexpr uint32_t DISPLAY_INTERVAL_MS = 1000 / DISPLAY_FPS;
-  constexpr uint32_t GRAPH_UPDATE_INTERVAL_MS = 2000; // Add graph sample every 2 seconds
+  constexpr uint32_t GRAPH_UPDATE_INTERVAL_MS = 1000; // Add graph sample every 1 second
 
   float lastPm1 = 0;
   float lastPm25 = 0;

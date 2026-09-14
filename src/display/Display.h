@@ -14,6 +14,7 @@ public:
     void showStatus(const char *timeText, bool wifiConnected, bool bluetoothConnected = false, uint32_t uptimeSeconds = 0);
     void shiftScreen(int16_t x, int16_t y);
     void setBrightness(uint8_t brightness);
+    void setGraphMode(int mode);
 
 private:
     uint32_t lastUpdateMs = 0;

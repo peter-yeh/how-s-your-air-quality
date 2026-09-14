@@ -122,6 +122,19 @@ namespace
                     Serial.printf("[CommandCallbacks] Invalid brightness value: %u\n", brightness);
                 }
             }
+            else if (command.startsWith("SetGraphMode:"))
+            {
+                String modeStr = command.substring(13); // "SetGraphMode:" is 13 chars
+                int mode = modeStr.toInt();
+                if (mode >= 0 && mode <= 2)
+                {
+                    if (activeDisplay)
+                    {
+                        activeDisplay->setGraphMode(mode);
+                        Serial.printf("[CommandCallbacks] Graph mode set to %d\n", mode);
+                    }
+                }
+            }
         }
     };
 

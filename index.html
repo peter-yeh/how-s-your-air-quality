@@ -18,6 +18,15 @@
             <input type="range" id="brightnessSlider" min="1" max="100" value="50">
             <span id="brightnessValue">50%</span>
         </div>
+        <div style="margin-top: 15px;">
+            <label>Graph Mode:</label>
+            <div class="radio-group" style="margin-top: 5px;">
+                <label style="margin-right: 10px;"><input type="radio" name="graphMode" value="0"> Seconds</label>
+                <label style="margin-right: 10px;"><input type="radio" name="graphMode" value="1" checked>
+                    Minutes</label>
+                <label><input type="radio" name="graphMode" value="2"> Hours</label>
+            </div>
+        </div>
     </div>
     <ul id="fileList"></ul>
     <div id="graphContainer">
