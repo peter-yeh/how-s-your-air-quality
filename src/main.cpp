@@ -17,37 +17,31 @@ BleServer ble;
 
 void airQualityTask(void *pvParameters)
 {
-  AirQualityStats stats;
-  uint32_t lastDisplayUpdate = 0;
-  uint32_t lastBurnInShift = 0;
-  uint32_t lastMinuteTick = millis();
-  uint8_t shiftIndex = 0;
   constexpr int16_t burnInShiftX[] = {0, 2, 0, -2};
   constexpr int16_t burnInShiftY[] = {2, 0, -2, 0};
   constexpr uint32_t DISPLAY_UPDATE_INTERVAL_MS = 1000;
 
-  float lastPm1 = 0;
-  float lastPm25 = 0;
-  float lastPm10 = 0;
+  AirQualityStats stats;
+  LatestReading latestReading;
+
+  uint32_t currentTick = millis();
+  uint8_t shiftIndex = 0;
+  uint32_t lastDisplayUpdate = 0;
+  uint32_t lastBurnInShift = 0;
+
+  uint32_t lastSecondTick = currentTick;
+  uint32_t lastMinuteTick = currentTick;
+  uint32_t lastHourTick = currentTick;
 
   while (true)
   {
-    float pm1 = 0;
-    float pm25 = 0;
-    float pm10 = 0;
+    currentTick = millis();
+    latestReading = sensor.read();
+    stats.addSample(latestReading.pm1, latestReading.pm25, latestReading.pm10);
 
-    if (sensor.read(pm1, pm25, pm10))
+    if (currentTick - lastMinuteTick >= 60000) // minute task
     {
-      lastPm1 = pm1;
-      lastPm25 = pm25;
-      lastPm10 = pm10;
-      stats.addSample(pm1, pm25, pm10);
-    }
-
-    // Every minute: save averaged readings to CSV for historical data
-    if (millis() - lastMinuteTick >= 60000)
-    {
-      lastMinuteTick = millis();
+      lastMinuteTick = currentTick;
 
       AirQualitySummary summary;
 
@@ -66,28 +60,25 @@ void airQualityTask(void *pvParameters)
 
         stats.clear();
       }
+
+      // Burn-in shift for the display to prevent screen burn-in
+      display.shiftScreen(burnInShiftX[shiftIndex], burnInShiftY[shiftIndex]);
+      shiftIndex = (shiftIndex + 1) % 4;
     }
 
-    if (millis() - lastDisplayUpdate >= DISPLAY_UPDATE_INTERVAL_MS)
+    if (currentTick - lastSecondTick >= 1000) // second task
     {
-      lastDisplayUpdate = millis();
+      lastSecondTick = currentTick;
 
-      const bool redrawGraph = display.addGraphSample(lastPm1, lastPm25, lastPm10);
+      const bool redrawGraph = display.addGraphSample(latestReading.pm1, latestReading.pm25, latestReading.pm10);
 
       AirQualitySummary summary;
       const bool hasNewSummary = stats.getSummary(summary);
 
-      display.renderNow(lastPm1, lastPm25, lastPm10,
-                        millis() / 1000, wireless.clockTime().c_str(),
+      display.renderNow(latestReading.pm1, latestReading.pm25, latestReading.pm10,
+                        currentTick / 1000, wireless.clockTime().c_str(),
                         wireless.connected(), ble.connected(),
                         summary, hasNewSummary, redrawGraph);
-    }
-
-    if (millis() - lastBurnInShift >= 60000)
-    {
-      display.shiftScreen(burnInShiftX[shiftIndex], burnInShiftY[shiftIndex]);
-      shiftIndex = (shiftIndex + 1) % 4;
-      lastBurnInShift = millis();
     }
 
     vTaskDelay(pdMS_TO_TICKS(100));

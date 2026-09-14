@@ -140,17 +140,8 @@ bool SensorController::begin()
     return true;
 }
 
-bool SensorController::read(float &pm1, float &pm25, float &pm10)
+LatestReading SensorController::read()
 {
-    if (!initialized || !bmv)
-    {
-        return false;
-    }
-
-    if (!bmv->getBmv080Data(&pm1, &pm25, &pm10))
-    {
-        return false;
-    }
-
-    return true;
+    bmv->getBmv080Data(&currentPm1, &currentPm25, &currentPm10);
+    return LatestReading{currentPm1, currentPm25, currentPm10};
 }
