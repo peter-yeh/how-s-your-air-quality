@@ -75,23 +75,20 @@ void airQualityTask(void *pvParameters)
     {
       lastDisplayUpdate = millis();
 
+      bool redrawGraph = false;
       if (millis() - lastGraphUpdate >= GRAPH_UPDATE_INTERVAL_MS)
       {
         lastGraphUpdate = millis();
-        display.addGraphSample(lastPm1, lastPm25, lastPm10);
+        redrawGraph = display.addGraphSample(lastPm1, lastPm25, lastPm10);
       }
-
-      display.showCurrent(lastPm1, lastPm25, lastPm10);
 
       AirQualitySummary summary;
-      if (stats.getSummary(summary))
-      {
-        display.showStats(summary);
-      }
+      const bool hasNewSummary = stats.getSummary(summary);
 
-      display.showStatus(wireless.clockTime().c_str(), wireless.connected(), ble.connected(), millis() / 1000);
-
-      display.update();
+      display.update(lastPm1, lastPm25, lastPm10,
+                     millis() / 1000, wireless.clockTime().c_str(),
+                     wireless.connected(), ble.connected(),
+                     summary, hasNewSummary, redrawGraph);
     }
 
     if (millis() - lastBurnInShift >= 60000)

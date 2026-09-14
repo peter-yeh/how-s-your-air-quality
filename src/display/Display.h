@@ -7,15 +7,13 @@ class DisplayController
 {
 public:
     void begin();
-    void update();
-    void showCurrent(float pm1, float pm25, float pm10);
-    void showStats(const AirQualitySummary &summary);
-    void addGraphSample(float pm1, float pm25, float pm10);
-    void showStatus(const char *timeText, bool wifiConnected, bool bluetoothConnected = false, uint32_t uptimeSeconds = 0);
+    void update(float pm1, float pm25, float pm10,
+                uint32_t uptimeSeconds, const char *timeText,
+                bool wifiConnected, bool bluetoothConnected,
+                const AirQualitySummary &summary, bool hasNewSummary,
+                bool redrawGraph);
+    bool addGraphSample(float pm1, float pm25, float pm10);
     void shiftScreen(int16_t x, int16_t y);
     void setBrightness(uint8_t brightness);
     void setGraphMode(int mode);
-
-private:
-    uint32_t lastUpdateMs = 0;
 };

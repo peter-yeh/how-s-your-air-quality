@@ -220,21 +220,40 @@ void DisplayController::begin()
 
     // Seed placeholder state so the whole layout is visible immediately,
     // rather than staying blank until the first sensor/clock tick arrives.
-    showStatus("--:--:--", false, false, 0);
-    showCurrent(0, 0, 0);
+    AirQualitySummary emptySummary;
+    update(0, 0, 0, 0, "--:--:--", false, false, emptySummary, false, false);
 
     graph.setPosition(BASE_GRAPH_X, BASE_GRAPH_Y);
     graph.init(display);
     needsGraphRedraw = true;
 
-    update();
+    update(0, 0, 0, 0, "--:--:--", false, false, emptySummary, false, true);
 
-    lastUpdateMs = millis();
     Serial.println("Display initialized.");
 }
 
-void DisplayController::update()
+void DisplayController::update(float pm1, float pm25, float pm10,
+                               uint32_t uptimeSeconds, const char *timeText,
+                               bool wifiConnected, bool bluetoothConnected,
+                               const AirQualitySummary &summary, bool hasNewSummary,
+                               bool redrawGraph)
 {
+    currentPm1 = pm1;
+    currentPm25 = pm25;
+    currentPm10 = pm10;
+    currentUptimeSeconds = uptimeSeconds;
+    currentClock = timeText;
+    currentWifiConnected = wifiConnected;
+    currentBluetoothConnected = bluetoothConnected;
+    if (hasNewSummary)
+    {
+        currentSummary = summary;
+        hasSummary = true;
+    }
+    needsPMRedraw = true;
+    needsTopBarRedraw = true;
+    needsGraphRedraw = needsGraphRedraw || redrawGraph;
+
     if (needsPMRedraw)
     {
         needsPMRedraw = false;
@@ -266,14 +285,6 @@ void DisplayController::update()
     }
 }
 
-void DisplayController::showCurrent(float pm1, float pm25, float pm10)
-{
-    currentPm1 = pm1;
-    currentPm25 = pm25;
-    currentPm10 = pm10;
-    needsPMRedraw = true;
-}
-
 void DisplayController::setBrightness(uint8_t brightness)
 {
     analogWrite(TFT_BL, brightness);
@@ -285,28 +296,9 @@ void DisplayController::setGraphMode(int mode)
     needsGraphRedraw = true;
 }
 
-void DisplayController::showStats(const AirQualitySummary &summary)
+bool DisplayController::addGraphSample(float pm1, float pm25, float pm10)
 {
-    currentSummary = summary;
-    hasSummary = true;
-    needsPMRedraw = true;
-}
-
-void DisplayController::addGraphSample(float pm1, float pm25, float pm10)
-{
-    if (graph.addSample(pm1, pm25, pm10))
-    {
-        needsGraphRedraw = true;
-    }
-}
-
-void DisplayController::showStatus(const char *timeText, bool wifiConnected, bool bluetoothConnected, uint32_t uptimeSeconds)
-{
-    currentClock = timeText;
-    currentWifiConnected = wifiConnected;
-    currentBluetoothConnected = bluetoothConnected;
-    currentUptimeSeconds = uptimeSeconds;
-    needsTopBarRedraw = true;
+    return graph.addSample(pm1, pm25, pm10);
 }
 
 void DisplayController::shiftScreen(int16_t x, int16_t y)
