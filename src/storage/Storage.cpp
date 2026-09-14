@@ -6,6 +6,7 @@
 #include <SPI.h>
 #include <time.h>
 #include <Preferences.h>
+#include "../Logger.h"
 
 namespace
 {
@@ -141,6 +142,63 @@ bool StorageController::saveToCsv(const String &data)
     if (!written)
     {
         Serial.print("Cannot write CSV row: ");
+        Serial.println(filename);
+    }
+    return written;
+}
+
+bool StorageController::saveLog(const String &message)
+{
+    if (!initialized)
+    {
+        Serial.println("Cannot save log: SD card is not initialized.");
+        return false;
+    }
+
+    time_t now = time(nullptr);
+    struct tm currentTime;
+    localtime_r(&now, &currentTime);
+    if (currentTime.tm_year < 120)
+    {
+        Serial.println("Cannot save log: system clock is not set.");
+        return false;
+    }
+
+    char monthFolder[16];
+    char filename[24];
+    snprintf(monthFolder, sizeof(monthFolder), "/%02d %04d",
+             currentTime.tm_mon + 1, currentTime.tm_year + 1900);
+    snprintf(filename, sizeof(filename), "%s/%02d%02d%04d.log",
+             monthFolder, currentTime.tm_mday, currentTime.tm_mon + 1,
+             currentTime.tm_year + 1900);
+
+    if (!SD.exists(monthFolder) && !SD.mkdir(monthFolder))
+    {
+        Serial.print("Cannot create log folder: ");
+        Serial.println(monthFolder);
+        return false;
+    }
+
+    File logFile = SD.open(filename, FILE_APPEND);
+    if (!logFile)
+    {
+        Serial.print("Cannot open log file: ");
+        Serial.println(filename);
+        return false;
+    }
+
+    char timestamp[24];
+    strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", &currentTime);
+    logFile.print("[");
+    logFile.print(timestamp);
+    logFile.print("] ");
+    logFile.println(message);
+    const bool written = logFile.getWriteError() == 0;
+    logFile.close();
+
+    if (!written)
+    {
+        Serial.print("Cannot write log file: ");
         Serial.println(filename);
     }
     return written;

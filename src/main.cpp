@@ -7,6 +7,7 @@
 #include "sensor/Sensor.h"
 #include "wireless/Wireless.h"
 #include "wireless/BleServer.h"
+#include "Logger.h"
 
 DisplayController display;
 StorageController storage;
@@ -18,15 +19,12 @@ void airQualityTask(void *pvParameters)
 {
   AirQualityStats stats;
   uint32_t lastDisplayUpdate = 0;
-  uint32_t lastGraphUpdate = 0;
   uint32_t lastBurnInShift = 0;
   uint32_t lastMinuteTick = millis();
   uint8_t shiftIndex = 0;
   constexpr int16_t burnInShiftX[] = {0, 2, 0, -2};
   constexpr int16_t burnInShiftY[] = {2, 0, -2, 0};
-  constexpr uint8_t DISPLAY_FPS = 5;
-  constexpr uint32_t DISPLAY_INTERVAL_MS = 1000 / DISPLAY_FPS;
-  constexpr uint32_t GRAPH_UPDATE_INTERVAL_MS = 1000; // Add graph sample every 1 second
+  constexpr uint32_t DISPLAY_UPDATE_INTERVAL_MS = 1000;
 
   float lastPm1 = 0;
   float lastPm25 = 0;
@@ -70,18 +68,11 @@ void airQualityTask(void *pvParameters)
       }
     }
 
-    // Push clock, PM readings, and graph sample to the display together, then
-    // paint them in the same renderNow() pass so they refresh in the same tick.
-    if (millis() - lastDisplayUpdate >= DISPLAY_INTERVAL_MS)
+    if (millis() - lastDisplayUpdate >= DISPLAY_UPDATE_INTERVAL_MS)
     {
       lastDisplayUpdate = millis();
 
-      bool redrawGraph = false;
-      if (millis() - lastGraphUpdate >= GRAPH_UPDATE_INTERVAL_MS)
-      {
-        lastGraphUpdate = millis();
-        redrawGraph = display.addGraphSample(lastPm1, lastPm25, lastPm10);
-      }
+      const bool redrawGraph = display.addGraphSample(lastPm1, lastPm25, lastPm10);
 
       AirQualitySummary summary;
       const bool hasNewSummary = stats.getSummary(summary);
@@ -107,7 +98,8 @@ void setup()
 {
   Serial.begin(115200);
   display.begin();
-  storage.begin();
+  const bool storageReady = storage.begin();
+  SerialLogger.enableStorage(storageReady);
   storage.testReadWrite();
 
   // Read brightness from storage and set it
@@ -117,13 +109,13 @@ void setup()
   wireless.begin("AnsonGarden", "66485973", 8 * 60 * 60);
   ble.begin(&storage, &display);
 
-  Serial.println("\n--- BMV080 Initializing ---");
+  Serial.println("--- BMV080 Initializing ---");
   while (!sensor.begin())
   {
     Serial.println("Retrying sensor init in 2s...");
     delay(2000);
   }
-  Serial.println("\n--- BMV080 Connected ---");
+  Serial.println("--- BMV080 Connected ---");
 
   // Launch sensor & display in a dedicated FreeRTOS task with 32KB stack
   xTaskCreatePinnedToCore(

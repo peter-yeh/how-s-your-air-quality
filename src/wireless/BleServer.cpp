@@ -7,6 +7,7 @@
 #include <NimBLEDevice.h>
 #include "storage/Storage.h"
 #include "display/Display.h"
+#include "../Logger.h"
 
 namespace
 {
@@ -171,7 +172,7 @@ bool BleServer::begin(StorageController *storage, DisplayController *display)
     NimBLECharacteristic *commandCharacteristic = service->createCharacteristic(COMMAND_UUID, NIMBLE_PROPERTY::WRITE);
     commandCharacteristic->setCallbacks(new CommandCallbacks());
     dataCharacteristic->setValue("Air Quality Monitor ready");
-    service->start();
+    server->start();
 
     NimBLEAdvertising *advertising = NimBLEDevice::getAdvertising();
     advertising->enableScanResponse(true);

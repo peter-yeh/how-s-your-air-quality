@@ -25,6 +25,7 @@ public:
     bool begin();
     bool testReadWrite();
     bool saveToCsv(const String &data);
+    bool saveLog(const String &message);
     bool saveReading(const Reading &reading);
     bool listCsvFiles(String &result);
     bool listAllFiles(String &result);
