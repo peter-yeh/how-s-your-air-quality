@@ -71,7 +71,7 @@ void airQualityTask(void *pvParameters)
     }
 
     // Push clock, PM readings, and graph sample to the display together, then
-    // paint them in the same update() pass so they refresh in the same tick.
+    // paint them in the same renderNow() pass so they refresh in the same tick.
     if (millis() - lastDisplayUpdate >= DISPLAY_INTERVAL_MS)
     {
       lastDisplayUpdate = millis();
@@ -86,10 +86,10 @@ void airQualityTask(void *pvParameters)
       AirQualitySummary summary;
       const bool hasNewSummary = stats.getSummary(summary);
 
-      display.update(lastPm1, lastPm25, lastPm10,
-                     millis() / 1000, wireless.clockTime().c_str(),
-                     wireless.connected(), ble.connected(),
-                     summary, hasNewSummary, redrawGraph);
+      display.renderNow(lastPm1, lastPm25, lastPm10,
+                        millis() / 1000, wireless.clockTime().c_str(),
+                        wireless.connected(), ble.connected(),
+                        summary, hasNewSummary, redrawGraph);
     }
 
     if (millis() - lastBurnInShift >= 60000)

@@ -221,22 +221,22 @@ void DisplayController::begin()
     // Seed placeholder state so the whole layout is visible immediately,
     // rather than staying blank until the first sensor/clock tick arrives.
     AirQualitySummary emptySummary;
-    update(0, 0, 0, 0, "--:--:--", false, false, emptySummary, false, false);
+    renderNow(0, 0, 0, 0, "--:--:--", false, false, emptySummary, false, false);
 
     graph.setPosition(BASE_GRAPH_X, BASE_GRAPH_Y);
     graph.init(display);
     needsGraphRedraw = true;
 
-    update(0, 0, 0, 0, "--:--:--", false, false, emptySummary, false, true);
+    renderNow(0, 0, 0, 0, "--:--:--", false, false, emptySummary, false, true);
 
     Serial.println("Display initialized.");
 }
 
-void DisplayController::update(float pm1, float pm25, float pm10,
-                               uint32_t uptimeSeconds, const char *timeText,
-                               bool wifiConnected, bool bluetoothConnected,
-                               const AirQualitySummary &summary, bool hasNewSummary,
-                               bool redrawGraph)
+void DisplayController::renderNow(float pm1, float pm25, float pm10,
+                                  uint32_t uptimeSeconds, const char *timeText,
+                                  bool wifiConnected, bool bluetoothConnected,
+                                  const AirQualitySummary &summary, bool hasNewSummary,
+                                  bool redrawGraph)
 {
     currentPm1 = pm1;
     currentPm25 = pm25;
