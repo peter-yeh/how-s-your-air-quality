@@ -22,7 +22,8 @@ void airQualityTask(void *pvParameters)
   uint32_t lastBurnInShift = 0;
   uint32_t lastMinuteTick = millis();
   uint8_t shiftIndex = 0;
-  constexpr int16_t burnInShifts[] = {0, 5, 0, -5};
+  constexpr int16_t burnInShiftX[] = {0, 2, 0, -2};
+  constexpr int16_t burnInShiftY[] = {2, 0, -2, 0};
   constexpr uint8_t DISPLAY_FPS = 5;
   constexpr uint32_t DISPLAY_INTERVAL_MS = 1000 / DISPLAY_FPS;
   constexpr uint32_t GRAPH_UPDATE_INTERVAL_MS = 1000; // Add graph sample every 1 second
@@ -93,8 +94,8 @@ void airQualityTask(void *pvParameters)
 
     if (millis() - lastBurnInShift >= 60000)
     {
+      display.shiftScreen(burnInShiftX[shiftIndex], burnInShiftY[shiftIndex]);
       shiftIndex = (shiftIndex + 1) % 4;
-      display.shiftScreen(burnInShifts[shiftIndex], 0);
       lastBurnInShift = millis();
     }
 
