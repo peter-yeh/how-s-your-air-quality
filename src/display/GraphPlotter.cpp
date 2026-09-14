@@ -2,6 +2,7 @@
 #include <Arduino.h>
 #include <Adafruit_ST7789.h>
 #include <math.h>
+#include <string.h>
 
 namespace
 {
@@ -12,9 +13,58 @@ namespace
     constexpr uint16_t COLOR_PM10 = ST77XX_MAGENTA;
 }
 
-GraphPlotter::GraphPlotter(int16_t x, int16_t y, int16_t w, int16_t h, float maxVal)
-    : originX(x), originY(y), width(w), height(h), maxValScale(maxVal), currentMode(Mode::MINUTES)
+GraphPlotter::GraphPlotter(int16_t x, int16_t y, int16_t w, int16_t h, float)
+    : originX(x), originY(y), width(w), height(h)
 {
+}
+
+uint8_t GraphPlotter::modeIndex(Mode mode)
+{
+    switch (mode)
+    {
+    case Mode::MINUTES:
+        return 1;
+    case Mode::HOURS:
+        return 2;
+    case Mode::SECONDS:
+    default:
+        return 0;
+    }
+}
+
+void GraphPlotter::addPoint(History &history, const Point &point)
+{
+    if (history.count == CAPACITY)
+    {
+        memmove(history.samples, history.samples + 1, (CAPACITY - 1) * sizeof(Point));
+    }
+    else
+    {
+        ++history.count;
+    }
+
+    history.samples[history.count - 1] = point;
+}
+
+bool GraphPlotter::addAverageSample(History &history, const Point &sample, uint16_t interval)
+{
+    history.total.pm1 += sample.pm1;
+    history.total.pm25 += sample.pm25;
+    history.total.pm10 += sample.pm10;
+    ++history.samplesSinceAverage;
+
+    if (history.count != 0 && history.samplesSinceAverage < interval)
+    {
+        return false;
+    }
+
+    const float sampleCount = history.samplesSinceAverage;
+    addPoint(history, {history.total.pm1 / sampleCount,
+                       history.total.pm25 / sampleCount,
+                       history.total.pm10 / sampleCount});
+    history.total = {0, 0, 0};
+    history.samplesSinceAverage = 0;
+    return true;
 }
 
 int16_t GraphPlotter::mapY(float val, float minScale, float maxScale) const
@@ -46,7 +96,7 @@ void GraphPlotter::init(Adafruit_GFX &display)
 
 void GraphPlotter::updateScale(float &minScale, float &maxScale, const Point *history, uint8_t count) const
 {
-    float largest = count > 0 ? history[0].pm1 : 0;
+    float largest = 0;
 
     for (uint8_t i = 0; i < count; ++i)
     {
@@ -128,70 +178,15 @@ void GraphPlotter::setMode(Mode mode)
 
 bool GraphPlotter::addSample(float pm1, float pm25, float pm10)
 {
-    bool updatedCurrentMode = false;
+    const Point sample = {pm1, pm25, pm10};
+    addPoint(histories[modeIndex(Mode::SECONDS)], sample);
 
-    // 1. Seconds history
-    if (secondsCount == CAPACITY)
-    {
-        memmove(secondsHistory, secondsHistory + 1, (CAPACITY - 1) * sizeof(Point));
-        secondsHistory[CAPACITY - 1] = {pm1, pm25, pm10};
-    }
-    else
-    {
-        secondsHistory[secondsCount++] = {pm1, pm25, pm10};
-    }
-    if (currentMode == Mode::SECONDS)
-        updatedCurrentMode = true;
+    const bool minutesUpdated = addAverageSample(histories[modeIndex(Mode::MINUTES)], sample, 60);
+    const bool hoursUpdated = addAverageSample(histories[modeIndex(Mode::HOURS)], sample, 3600);
 
-    // 2. Minutes history
-    minuteAccumulator.pm1 += pm1;
-    minuteAccumulator.pm25 += pm25;
-    minuteAccumulator.pm10 += pm10;
-    secondsToMinuteCounter++;
-
-    if (secondsToMinuteCounter >= 60 || minutesCount == 0)
-    {
-        Point avg = {minuteAccumulator.pm1 / secondsToMinuteCounter, minuteAccumulator.pm25 / secondsToMinuteCounter, minuteAccumulator.pm10 / secondsToMinuteCounter};
-        if (minutesCount == CAPACITY)
-        {
-            memmove(minutesHistory, minutesHistory + 1, (CAPACITY - 1) * sizeof(Point));
-            minutesHistory[CAPACITY - 1] = avg;
-        }
-        else
-        {
-            minutesHistory[minutesCount++] = avg;
-        }
-        minuteAccumulator = {0, 0, 0};
-        secondsToMinuteCounter = 0;
-        if (currentMode == Mode::MINUTES)
-            updatedCurrentMode = true;
-    }
-
-    // 3. Hours history
-    hourAccumulator.pm1 += pm1;
-    hourAccumulator.pm25 += pm25;
-    hourAccumulator.pm10 += pm10;
-    secondsToHourCounter++;
-
-    if (secondsToHourCounter >= 3600 || hoursCount == 0)
-    {
-        Point avg = {hourAccumulator.pm1 / secondsToHourCounter, hourAccumulator.pm25 / secondsToHourCounter, hourAccumulator.pm10 / secondsToHourCounter};
-        if (hoursCount == CAPACITY)
-        {
-            memmove(hoursHistory, hoursHistory + 1, (CAPACITY - 1) * sizeof(Point));
-            hoursHistory[CAPACITY - 1] = avg;
-        }
-        else
-        {
-            hoursHistory[hoursCount++] = avg;
-        }
-        hourAccumulator = {0, 0, 0};
-        secondsToHourCounter = 0;
-        if (currentMode == Mode::HOURS)
-            updatedCurrentMode = true;
-    }
-
-    return updatedCurrentMode;
+    return currentMode == Mode::SECONDS ||
+           (currentMode == Mode::MINUTES && minutesUpdated) ||
+           (currentMode == Mode::HOURS && hoursUpdated);
 }
 
 void GraphPlotter::draw(Adafruit_GFX &display)
@@ -202,28 +197,10 @@ void GraphPlotter::draw(Adafruit_GFX &display)
     // Draw grid
     drawGrid(display);
 
-    const Point *history;
-    uint8_t count;
-    uint32_t span;
-
-    if (currentMode == Mode::SECONDS)
-    {
-        history = secondsHistory;
-        count = secondsCount;
-        span = count > 0 ? (count - 1) : 0;
-    }
-    else if (currentMode == Mode::MINUTES)
-    {
-        history = minutesHistory;
-        count = minutesCount;
-        span = count > 0 ? (count - 1) : 0;
-    }
-    else
-    {
-        history = hoursHistory;
-        count = hoursCount;
-        span = count > 0 ? (count - 1) : 0;
-    }
+    const History &selectedHistory = histories[modeIndex(currentMode)];
+    const Point *history = selectedHistory.samples;
+    const uint8_t count = selectedHistory.count;
+    const uint32_t span = count > 0 ? count - 1 : 0;
 
     if (count == 0)
     {
@@ -259,13 +236,12 @@ void GraphPlotter::draw(Adafruit_GFX &display)
 
 void GraphPlotter::reset()
 {
-    secondsCount = 0;
-    minutesCount = 0;
-    secondsToMinuteCounter = 0;
-    minuteAccumulator = {0, 0, 0};
-    hoursCount = 0;
-    secondsToHourCounter = 0;
-    hourAccumulator = {0, 0, 0};
+    for (uint8_t i = 0; i < HISTORY_COUNT; ++i)
+    {
+        histories[i].count = 0;
+        histories[i].total = {0, 0, 0};
+        histories[i].samplesSinceAverage = 0;
+    }
 }
 
 void GraphPlotter::drawPlaceholder(Adafruit_GFX &display)

@@ -15,7 +15,7 @@ public:
 
     static constexpr uint8_t CAPACITY = 120; // Collect up to 120 points
 
-    GraphPlotter(int16_t x = 36, int16_t y = 96, int16_t w = 261, int16_t h = 120, float maxVal = 100.0f);
+    GraphPlotter(int16_t x = 36, int16_t y = 96, int16_t w = 261, int16_t h = 120, float = 100.0f);
 
     void init(Adafruit_GFX &display);
     bool addSample(float pm1, float pm25, float pm10);
@@ -33,7 +33,18 @@ private:
         float pm10;
     };
 
+    struct History
+    {
+        Point samples[CAPACITY];
+        Point total = {0, 0, 0};
+        uint8_t count = 0;
+        uint16_t samplesSinceAverage = 0;
+    };
+
     int16_t mapY(float val, float minScale, float maxScale) const;
+    static uint8_t modeIndex(Mode mode);
+    static void addPoint(History &history, const Point &point);
+    static bool addAverageSample(History &history, const Point &sample, uint16_t interval);
     void drawGrid(Adafruit_GFX &display);
     void updateScale(float &minScale, float &maxScale, const Point *history, uint8_t count) const;
     void drawScaleLabels(Adafruit_GFX &display, float minScale, float maxScale);
@@ -44,20 +55,8 @@ private:
     int16_t originY;
     int16_t width;
     int16_t height;
-    float maxValScale;
 
-    Mode currentMode = Mode::SECONDS;
-
-    Point secondsHistory[CAPACITY];
-    uint8_t secondsCount = 0;
-
-    Point minutesHistory[CAPACITY];
-    uint8_t minutesCount = 0;
-    uint8_t secondsToMinuteCounter = 0;
-    Point minuteAccumulator = {0, 0, 0};
-
-    Point hoursHistory[CAPACITY];
-    uint8_t hoursCount = 0;
-    uint16_t secondsToHourCounter = 0;
-    Point hourAccumulator = {0, 0, 0};
+    static constexpr uint8_t HISTORY_COUNT = 3;
+    Mode currentMode = Mode::MINUTES;
+    History histories[HISTORY_COUNT];
 };
