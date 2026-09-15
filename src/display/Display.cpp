@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include <SPI.h>
+#include <cmath>
 #include <Adafruit_GFX.h>
 #include <Adafruit_ST7789.h>
 #define LOG_CLASS "DisplayController"
@@ -43,6 +44,8 @@ namespace
 
     constexpr int16_t SUMMARY_ROW_Y[] = {40, 55, 70};
     constexpr int16_t SUMMARY_VALUE_COLUMNS[] = {66, 100, 134, 168, 202};
+    constexpr uint8_t SUMMARY_VALUE_CELL_WIDTH = 34;
+    constexpr uint8_t SUMMARY_VALUE_MAX_CHARACTERS = 5;
     const uint16_t SUMMARY_ROW_COLORS[] = {ST77XX_CYAN, ST77XX_YELLOW, ST77XX_MAGENTA};
     const char *const SUMMARY_ROW_LABELS[] = {"PM1", "PM25", "PM10"};
 
@@ -69,6 +72,21 @@ namespace
         }
         result += seconds;
         return result;
+    }
+
+    String formatSummaryValue(float value)
+    {
+        if (!std::isfinite(value))
+        {
+            return "--";
+        }
+
+        const String formatted = String(value, 0);
+        if (formatted.length() > SUMMARY_VALUE_MAX_CHARACTERS)
+        {
+            return "--";
+        }
+        return formatted;
     }
 
     // Background fill and title only; redrawn once (and after a burn-in shift) to avoid flicker.
@@ -142,20 +160,20 @@ namespace
 
         for (uint8_t i = 0; i < 3; ++i)
         {
-            const int values[] = {
-                (int)(currentValues[i] + 0.5f),
-                (int)(lowValues[i] + 0.5f),
-                (int)(medianValues[i] + 0.5f),
-                (int)(highValues[i] + 0.5f),
-                (int)(averageValues[i] + 0.5f)};
+            const float values[] = {
+                currentValues[i],
+                lowValues[i],
+                medianValues[i],
+                highValues[i],
+                averageValues[i]};
 
             for (uint8_t col = 0; col < 5; ++col)
             {
-                display.fillRect(SUMMARY_VALUE_COLUMNS[col] + screenShiftX, SUMMARY_ROW_Y[i] + screenShiftY, 28, 8, ST77XX_BLACK);
+                display.fillRect(SUMMARY_VALUE_COLUMNS[col] + screenShiftX, SUMMARY_ROW_Y[i] + screenShiftY, SUMMARY_VALUE_CELL_WIDTH, 8, ST77XX_BLACK);
                 display.setCursor(SUMMARY_VALUE_COLUMNS[col] + screenShiftX, SUMMARY_ROW_Y[i] + screenShiftY);
                 if (hasSummary)
                 {
-                    display.print(values[col]);
+                    display.print(formatSummaryValue(values[col]));
                 }
                 else
                 {

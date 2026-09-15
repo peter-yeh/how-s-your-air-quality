@@ -2,6 +2,7 @@
 // Interface: I2C through the DFRobot BMV080 driver
 
 #include "Sensor.h"
+#include <cmath>
 #define LOG_CLASS "SensorController"
 #include "../utilities/Logger.h"
 
@@ -140,6 +141,20 @@ bool SensorController::begin()
 
 LatestReading SensorController::read()
 {
-    bmv->getBmv080Data(&currentPm1, &currentPm25, &currentPm10);
+    float pm1;
+    float pm25;
+    float pm10;
+
+    if (bmv != nullptr &&
+        bmv->getBmv080Data(&pm1, &pm25, &pm10) &&
+        std::isfinite(pm1) &&
+        std::isfinite(pm25) &&
+        std::isfinite(pm10))
+    {
+        currentPm1 = pm1;
+        currentPm25 = pm25;
+        currentPm10 = pm10;
+    }
+
     return LatestReading{currentPm1, currentPm25, currentPm10};
 }

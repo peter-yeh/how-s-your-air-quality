@@ -1,5 +1,6 @@
 #include "AirQualityStats.h"
 #include <algorithm>
+#include <cmath>
 
 namespace
 {
@@ -122,6 +123,11 @@ void AirQualityStats::MedianEstimator::clear()
 
 void AirQualityStats::addSample(float pm1, float pm25, float pm10)
 {
+    if (!std::isfinite(pm1) || !std::isfinite(pm25) || !std::isfinite(pm10))
+    {
+        return;
+    }
+
     if (count == 0)
     {
         lowPm1 = pm1;
