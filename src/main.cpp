@@ -26,6 +26,7 @@ void airQualityTask(void *pvParameters)
   constexpr uint32_t DISPLAY_UPDATE_INTERVAL_MS = 1000;
 
   AirQualityStats stats;
+  AirQualityStats minuteStats;
   LatestReading latestReading;
 
   uint32_t currentTick = millis();
@@ -42,6 +43,7 @@ void airQualityTask(void *pvParameters)
     currentTick = millis();
     latestReading = sensor.read();
     stats.addSample(latestReading.pm1, latestReading.pm25, latestReading.pm10);
+    minuteStats.addSample(latestReading.pm1, latestReading.pm25, latestReading.pm10);
 
     if (currentTick - lastMinuteTick >= 60000) // minute task
     {
@@ -49,7 +51,7 @@ void airQualityTask(void *pvParameters)
 
       AirQualitySummary summary;
 
-      if (stats.getSummary(summary))
+      if (minuteStats.getSummary(summary))
       {
         const String readingTime = wireless.currentTime();
         if (readingTime != "time unavailable")
@@ -62,7 +64,7 @@ void airQualityTask(void *pvParameters)
           storage.saveReading(reading);
         }
 
-        stats.clear();
+        minuteStats.clear();
       }
 
       // Burn-in shift for the display to prevent screen burn-in
