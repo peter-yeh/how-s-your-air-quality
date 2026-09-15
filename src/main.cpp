@@ -87,21 +87,23 @@ void airQualityTask(void *pvParameters)
 
 void setup()
 {
+
   Serial.begin(115200);
   display.begin();
+  Serial.println("--- BMV080 Initializing ---");
+
+  wireless.begin("AnsonGarden", "66485973", 8 * 60 * 60);
+
+  const bool storageReady = storage.begin();
+  // SerialLogger.enableStorage(storageReady);
+  storage.testReadWrite();
 
   // Read brightness from storage and set it
   uint8_t brightness = storage.getBrightness();
   display.setBrightness(brightness);
 
-  wireless.begin("AnsonGarden", "66485973", 8 * 60 * 60);
   ble.begin(&storage, &display);
 
-  const bool storageReady = storage.begin();
-  SerialLogger.enableStorage(storageReady);
-  storage.testReadWrite();
-
-  Serial.println("--- BMV080 Initializing ---");
   while (!sensor.begin())
   {
     Serial.println("Retrying sensor init in 2s...");

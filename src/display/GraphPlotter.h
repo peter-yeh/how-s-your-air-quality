@@ -57,6 +57,6 @@ private:
     int16_t height;
 
     static constexpr uint8_t HISTORY_COUNT = 3;
-    Mode currentMode = Mode::MINUTES;
+    Mode currentMode = Mode::SECONDS;
     History histories[HISTORY_COUNT];
 };

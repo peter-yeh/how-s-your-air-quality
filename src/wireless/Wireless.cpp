@@ -8,8 +8,6 @@ namespace
 {
     constexpr uint32_t WIFI_TIMEOUT_MS = 20000;
     constexpr uint32_t TIME_SYNC_TIMEOUT_MS = 10000;
-    constexpr char NTP_SERVER_1[] = "pool.ntp.org";
-    constexpr char NTP_SERVER_2[] = "time.nist.gov";
 }
 
 bool WirelessController::begin(const char *ssid, const char *password, long gmtOffsetSeconds)
@@ -35,7 +33,7 @@ bool WirelessController::begin(const char *ssid, const char *password, long gmtO
     Serial.print("Wi-Fi connected. IP address: ");
     Serial.println(WiFi.localIP());
 
-    configTime(gmtOffsetSeconds, 0, NTP_SERVER_1, NTP_SERVER_2);
+    configTime(gmtOffsetSeconds, 0, "asia.pool.ntp.org", "pool.ntp.org");
     Serial.print("Synchronizing time");
     if (!waitForTimeSync(TIME_SYNC_TIMEOUT_MS))
     {
