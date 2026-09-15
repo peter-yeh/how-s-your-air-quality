@@ -140,7 +140,7 @@ void LoggingSerial::log(const char *filename, const char *className, const char 
     const int prefixLength = snprintf(
         formattedLine,
         sizeof(formattedLine),
-        "%s | %s | %s | %s | ",
+        "%-20s | %-20s | %-20s | %-20s | ",
         timestamp,
         fileNameOnly(filename),
         safeClassName,

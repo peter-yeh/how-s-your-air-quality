@@ -455,7 +455,7 @@ bool StorageController::streamRecentLines(const String &path, size_t maxLines, v
         }
     }
 
-        APP_LOG("streamRecentLines: %s, size %u bytes, starting at %u",
+    APP_LOG("streamRecentLines: %s, size %u bytes, starting at %u",
             path.c_str(),
             static_cast<unsigned>(fileSize),
             static_cast<unsigned>(file.position()));
