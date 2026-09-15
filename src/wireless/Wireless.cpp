@@ -2,7 +2,7 @@
 
 #include <WiFi.h>
 #include <time.h>
-#include "../Logger.h"
+#include "../utilities/Logger.h"
 
 namespace
 {

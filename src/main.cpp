@@ -7,7 +7,7 @@
 #include "sensor/Sensor.h"
 #include "wireless/Wireless.h"
 #include "wireless/BleServer.h"
-#include "Logger.h"
+#include "utilities/Logger.h"
 
 #include "utilities/secrets.h"
 

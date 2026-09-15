@@ -1,7 +1,7 @@
 #define LOGGING_SERIAL_IMPLEMENTATION
 #include "Logger.h"
 
-#include "storage/Storage.h"
+#include "../storage/Storage.h"
 
 #include <stdarg.h>
 #include <stdio.h>

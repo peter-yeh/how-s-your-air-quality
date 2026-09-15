@@ -6,7 +6,7 @@
 #include <SPI.h>
 #include <time.h>
 #include <Preferences.h>
-#include "../Logger.h"
+#include "../utilities/Logger.h"
 
 namespace
 {

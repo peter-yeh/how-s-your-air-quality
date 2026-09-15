@@ -7,7 +7,7 @@
 #include <NimBLEDevice.h>
 #include "storage/Storage.h"
 #include "display/Display.h"
-#include "../Logger.h"
+#include "../utilities/Logger.h"
 
 namespace
 {

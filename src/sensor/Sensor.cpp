@@ -2,7 +2,7 @@
 // Interface: I2C through the DFRobot BMV080 driver
 
 #include "Sensor.h"
-#include "../Logger.h"
+#include "../utilities/Logger.h"
 
 SensorController::~SensorController()
 {
