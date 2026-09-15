@@ -8,6 +8,7 @@
 #include "sensor/Sensor.h"
 #include "wireless/Wireless.h"
 #include "wireless/BleServer.h"
+#define LOG_CLASS "Application"
 #include "utilities/Logger.h"
 
 #include "utilities/secrets.h"
@@ -96,7 +97,7 @@ void setup()
 
   Serial.begin(115200);
   display.begin();
-  Serial.println("--- BMV080 Initializing ---");
+  APP_LOG("BMV080 initializing");
 
   wireless.begin(WIFI_SSID, WIFI_PASSWORD, 8 * 60 * 60);
 
@@ -113,10 +114,10 @@ void setup()
 
   while (!sensor.begin())
   {
-    Serial.println("Retrying sensor init in 2s...");
+    APP_LOG("Retrying sensor initialization in 2s...");
     delay(2000);
   }
-  Serial.println("--- BMV080 Connected ---");
+  APP_LOG("BMV080 connected");
 
   // Launch sensor & display in a dedicated FreeRTOS task with 32KB stack
   xTaskCreatePinnedToCore(

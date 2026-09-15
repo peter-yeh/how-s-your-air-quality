@@ -5,6 +5,7 @@
 #include <SPI.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_ST7789.h>
+#define LOG_CLASS "DisplayController"
 #include "../utilities/Logger.h"
 
 namespace
@@ -230,7 +231,7 @@ void DisplayController::begin()
 
     renderNow(0, 0, 0, 0, "--:--:--", false, false, emptySummary, false, true);
 
-    Serial.println("Display initialized.");
+    APP_LOG("Display initialized.");
 }
 
 void DisplayController::renderNow(float pm1, float pm25, float pm10,

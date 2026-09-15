@@ -2,6 +2,7 @@
 
 #include <WiFi.h>
 #include <time.h>
+#define LOG_CLASS "WirelessController"
 #include "../utilities/Logger.h"
 
 namespace
@@ -15,35 +16,35 @@ bool WirelessController::begin(const char *ssid, const char *password, long gmtO
     WiFi.mode(WIFI_STA);
     WiFi.begin(ssid, password);
 
-    Serial.printf("Connecting to Wi-Fi network %s", ssid);
+    String connectionMessage = "Connecting to Wi-Fi network ";
+    connectionMessage += ssid;
     const uint32_t wifiStart = millis();
     while (WiFi.status() != WL_CONNECTED && millis() - wifiStart < WIFI_TIMEOUT_MS)
     {
         delay(500);
-        Serial.print('.');
+        connectionMessage += '.';
     }
-    Serial.println();
+    APP_LOG("%s", connectionMessage.c_str());
 
     if (!connected())
     {
-        Serial.println("ERROR: Wi-Fi connection failed.");
+        APP_LOG("Wi-Fi connection failed.");
         return false;
     }
 
-    Serial.print("Wi-Fi connected. IP address: ");
-    Serial.println(WiFi.localIP());
+    APP_LOG("Wi-Fi connected. IP address: %s", WiFi.localIP().toString().c_str());
 
     configTime(gmtOffsetSeconds, 0, "asia.pool.ntp.org", "pool.ntp.org");
-    Serial.print("Synchronizing time");
-    if (!waitForTimeSync(TIME_SYNC_TIMEOUT_MS))
+    String timeSyncMessage = "Synchronizing time";
+    if (!waitForTimeSync(TIME_SYNC_TIMEOUT_MS, timeSyncMessage))
     {
-        Serial.println();
-        Serial.println("ERROR: NTP time synchronization failed.");
+        APP_LOG("%s", timeSyncMessage.c_str());
+        APP_LOG("NTP time synchronization failed.");
         return false;
     }
 
-    Serial.println();
-    Serial.printf("Current time: %s\n", currentTime().c_str());
+    APP_LOG("%s", timeSyncMessage.c_str());
+    APP_LOG("Current time: %s", currentTime().c_str());
     return true;
 }
 
@@ -78,7 +79,7 @@ String WirelessController::clockTime() const
     return String(formattedTime);
 }
 
-bool WirelessController::waitForTimeSync(uint32_t timeoutMs) const
+bool WirelessController::waitForTimeSync(uint32_t timeoutMs, String &progress) const
 {
     const uint32_t syncStart = millis();
     struct tm timeInfo;
@@ -89,7 +90,7 @@ bool WirelessController::waitForTimeSync(uint32_t timeoutMs) const
         {
             return true;
         }
-        Serial.print('.');
+        progress += '.';
     }
 
     return false;

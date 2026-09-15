@@ -8,6 +8,7 @@
 #include "storage/Storage.h"
 #include "storage/Settings.h"
 #include "display/Display.h"
+#define LOG_CLASS "BleServer"
 #include "../utilities/Logger.h"
 
 namespace
@@ -29,7 +30,7 @@ namespace
         dataCharacteristic->setValue(chunk.c_str());
         bool chunkQueued = dataCharacteristic->notify(reinterpret_cast<const uint8_t *>(chunk.c_str()), chunk.length());
         if (!chunkQueued)
-            Serial.printf("[sendChunk] Failed to send %u bytes!\n", chunk.length());
+            APP_LOG_AS("BleServer", "Failed to send %u bytes!", static_cast<unsigned>(chunk.length()));
 
         return chunkQueued;
     }
@@ -75,14 +76,14 @@ namespace
         void onWrite(NimBLECharacteristic *characteristic, NimBLEConnInfo &) override
         {
             const String command = characteristic->getValue().c_str();
-            Serial.printf("[CommandCallbacks] command received: %s\n", command.c_str());
+            APP_LOG_AS("CommandCallbacks", "Command received: %s", command.c_str());
 
             if (command.startsWith("GET:"))
             {
                 String filename = command.substring(4); // "GET:" is 4 characters
 
                 String *pathPtr = new String(filename);
-                Serial.printf("[CommandCallbacks] Streaming CSV File: %s\n", pathPtr->c_str());
+                APP_LOG_AS("CommandCallbacks", "Streaming CSV file: %s", pathPtr->c_str());
                 xQueueSend(bleTxQueue, &pathPtr, 0);
             }
             else if (command.startsWith("LIST"))
@@ -90,14 +91,14 @@ namespace
                 String fileList;
                 if (activeStorage->listCsvFiles(fileList))
                 {
-                    Serial.printf("[CommandCallbacks] sending file list: %s\n", fileList.c_str());
+                    APP_LOG_AS("CommandCallbacks", "Sending file list: %s", fileList.c_str());
 
                     sendPackage("\x01" + fileList + "\x02");
-                    Serial.printf("[CommandCallbacks] Sent file list");
+                    APP_LOG_AS("CommandCallbacks", "Sent file list");
                 }
                 else
                 {
-                    Serial.println("[CommandCallbacks] Failed to list CSV files");
+                    APP_LOG_AS("CommandCallbacks", "Failed to list CSV files");
                 }
             }
             else if (command.startsWith("GetSettings"))
@@ -105,14 +106,14 @@ namespace
                 uint8_t brightness = activeSettings->getBrightness();
                 uint8_t graphMode = activeSettings->getGraphMode();
                 String response = "SETTINGS:" + String(brightness) + "," + String(graphMode);
-                Serial.printf("[CommandCallbacks] Sending settings: brightness=%u, graphMode=%u\n", brightness, graphMode);
+                APP_LOG_AS("CommandCallbacks", "Sending settings: brightness=%u, graphMode=%u", brightness, graphMode);
                 sendChunk(response);
             }
             else if (command.startsWith("GetBrightness"))
             {
                 uint8_t brightness = activeSettings->getBrightness();
                 String response = "BRIGHTNESS:" + String(brightness);
-                Serial.printf("[CommandCallbacks] Sending legacy brightness: %u\n", brightness);
+                APP_LOG_AS("CommandCallbacks", "Sending legacy brightness: %u", brightness);
                 sendChunk(response);
             }
             else if (command.startsWith("SetBrightness:"))
@@ -125,12 +126,12 @@ namespace
                     if (activeDisplay)
                     {
                         activeDisplay->setBrightness(brightness);
-                        Serial.printf("[CommandCallbacks] Brightness set to %u (0-255)\n", brightness);
+                        APP_LOG_AS("CommandCallbacks", "Brightness set to %u (0-255)", brightness);
                     }
                 }
                 else
                 {
-                    Serial.printf("[CommandCallbacks] Invalid brightness value: %u\n", brightness);
+                    APP_LOG_AS("CommandCallbacks", "Invalid brightness value: %u", brightness);
                 }
             }
             else if (command.startsWith("SetGraphMode:"))
@@ -142,11 +143,11 @@ namespace
                     if (activeSettings->setGraphMode(static_cast<uint8_t>(mode)) && activeDisplay)
                     {
                         activeDisplay->setGraphMode(mode);
-                        Serial.printf("[CommandCallbacks] Graph mode set to %d\n", mode);
+                        APP_LOG_AS("CommandCallbacks", "Graph mode set to %d", mode);
                     }
                     else
                     {
-                        Serial.printf("[CommandCallbacks] Failed to save graph mode %d\n", mode);
+                        APP_LOG_AS("CommandCallbacks", "Failed to save graph mode %d", mode);
                     }
                 }
             }
@@ -159,14 +160,18 @@ namespace
         void onConnect(NimBLEServer *, NimBLEConnInfo &connInfo) override
         {
             clientConnected = true;
-            Serial.printf("BLE client connected, peer address: %s, MTU: %u\n", connInfo.getAddress().toString().c_str(), connInfo.getMTU());
+            APP_LOG_AS("ServerCallbacks", "BLE client connected, peer address: %s, MTU: %u",
+                       connInfo.getAddress().toString().c_str(),
+                       static_cast<unsigned>(connInfo.getMTU()));
             NimBLEDevice::stopAdvertising();
         }
 
         void onDisconnect(NimBLEServer *, NimBLEConnInfo &connInfo, int reason) override
         {
             clientConnected = false;
-            Serial.printf("BLE client disconnected, peer address: %s, reason: %d\n", connInfo.getAddress().toString().c_str(), reason);
+            APP_LOG_AS("ServerCallbacks", "BLE client disconnected, peer address: %s, reason: %d",
+                       connInfo.getAddress().toString().c_str(),
+                       reason);
             NimBLEDevice::startAdvertising();
         }
     };
@@ -194,7 +199,7 @@ bool BleServer::begin(StorageController *storage, SettingsController *settings, 
     advertising->addServiceUUID(SERVICE_UUID);
     advertising->setName("Air Quality Monitor");
     advertising->start();
-    Serial.println("BLE advertising as Air Quality Monitor.");
+    APP_LOG("BLE advertising as Air Quality Monitor.");
 
     bleTxQueue = xQueueCreate(5, sizeof(String *));
     xTaskCreatePinnedToCore(

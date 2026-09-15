@@ -1,6 +1,8 @@
 #include "Settings.h"
 
 #include <Preferences.h>
+#define LOG_CLASS "SettingsController"
+#include "../utilities/Logger.h"
 
 namespace
 {
@@ -17,13 +19,13 @@ uint8_t SettingsController::getBrightness() const
     Preferences preferences;
     if (!preferences.begin(PREFERENCES_NAMESPACE, true))
     {
-        Serial.println("getBrightness: unable to open preferences");
+        APP_LOG("Unable to open preferences while getting brightness.");
         return DEFAULT_BRIGHTNESS;
     }
 
     const uint8_t brightness = preferences.getUChar(BRIGHTNESS_KEY, DEFAULT_BRIGHTNESS);
     preferences.end();
-    Serial.printf("getBrightness: %u\n", brightness);
+    APP_LOG("Brightness read: %u", brightness);
     return brightness;
 }
 
@@ -32,7 +34,7 @@ bool SettingsController::setBrightness(uint8_t brightness)
     Preferences preferences;
     if (!preferences.begin(PREFERENCES_NAMESPACE, false))
     {
-        Serial.println("setBrightness: unable to open preferences");
+        APP_LOG("Unable to open preferences while setting brightness.");
         return false;
     }
 
@@ -40,7 +42,7 @@ bool SettingsController::setBrightness(uint8_t brightness)
     preferences.end();
 
     const bool success = bytesWritten == sizeof(brightness);
-    Serial.printf("setBrightness: %u (success: %s)\n", brightness, success ? "true" : "false");
+    APP_LOG("Brightness set to %u (success: %s)", brightness, success ? "true" : "false");
     return success;
 }
 
@@ -49,7 +51,7 @@ uint8_t SettingsController::getGraphMode() const
     Preferences preferences;
     if (!preferences.begin(PREFERENCES_NAMESPACE, true))
     {
-        Serial.println("getGraphMode: unable to open preferences");
+        APP_LOG("Unable to open preferences while getting graph mode.");
         return DEFAULT_GRAPH_MODE;
     }
 
@@ -58,11 +60,11 @@ uint8_t SettingsController::getGraphMode() const
 
     if (graphMode > MAX_GRAPH_MODE)
     {
-        Serial.printf("getGraphMode: invalid stored mode %u\n", graphMode);
+        APP_LOG("Invalid stored graph mode %u", graphMode);
         return DEFAULT_GRAPH_MODE;
     }
 
-    Serial.printf("getGraphMode: %u\n", graphMode);
+    APP_LOG("Graph mode read: %u", graphMode);
     return graphMode;
 }
 
@@ -70,14 +72,14 @@ bool SettingsController::setGraphMode(uint8_t graphMode)
 {
     if (graphMode > MAX_GRAPH_MODE)
     {
-        Serial.printf("setGraphMode: invalid mode %u\n", graphMode);
+        APP_LOG("Invalid graph mode %u", graphMode);
         return false;
     }
 
     Preferences preferences;
     if (!preferences.begin(PREFERENCES_NAMESPACE, false))
     {
-        Serial.println("setGraphMode: unable to open preferences");
+        APP_LOG("Unable to open preferences while setting graph mode.");
         return false;
     }
 
@@ -85,6 +87,6 @@ bool SettingsController::setGraphMode(uint8_t graphMode)
     preferences.end();
 
     const bool success = bytesWritten == sizeof(graphMode);
-    Serial.printf("setGraphMode: %u (success: %s)\n", graphMode, success ? "true" : "false");
+    APP_LOG("Graph mode set to %u (success: %s)", graphMode, success ? "true" : "false");
     return success;
 }

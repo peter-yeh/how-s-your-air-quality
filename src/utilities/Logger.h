@@ -16,6 +16,7 @@ public:
     size_t write(uint8_t byte) override;
     size_t write(const uint8_t *buffer, size_t size) override;
     int printf(const char *format, ...);
+    void log(const char *filename, const char *className, const char *functionName, const char *format, ...);
 
 private:
     static constexpr size_t LOG_LINE_CAPACITY = 512;
@@ -51,6 +52,16 @@ private:
 };
 
 extern LoggingSerial SerialLogger;
+
+#ifndef LOG_CLASS
+#define LOG_CLASS "Unknown"
+#endif
+
+#define APP_LOG(format, ...) \
+    SerialLogger.log(__FILE__, LOG_CLASS, __func__, format, ##__VA_ARGS__)
+
+#define APP_LOG_AS(className, format, ...) \
+    SerialLogger.log(__FILE__, className, __func__, format, ##__VA_ARGS__)
 
 #ifndef LOGGING_SERIAL_IMPLEMENTATION
 #define Serial SerialLogger

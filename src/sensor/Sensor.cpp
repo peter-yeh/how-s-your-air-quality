@@ -2,6 +2,7 @@
 // Interface: I2C through the DFRobot BMV080 driver
 
 #include "Sensor.h"
+#define LOG_CLASS "SensorController"
 #include "../utilities/Logger.h"
 
 SensorController::~SensorController()
@@ -15,9 +16,9 @@ SensorController::~SensorController()
 
 void SensorController::scanI2C()
 {
-    Serial.println("\n+======================================================+");
-    Serial.println("|          BOARD I2C SCANNER (IO32=SDA, IO25=SCL)      |");
-    Serial.println("+======================================================+");
+    APP_LOG("+======================================================+");
+    APP_LOG("|          BOARD I2C SCANNER (IO32=SDA, IO25=SCL)      |");
+    APP_LOG("+======================================================+");
 
     // Exact pins from your Sunton 3.2" ESP32 LCD board silkscreen
     constexpr uint8_t PIN_SDA = 32;
@@ -37,21 +38,21 @@ void SensorController::scanI2C()
         if (Wire.endTransmission() == 0)
         {
             detectedAddr = addr;
-            Serial.printf("[I2C SCAN] >>> SUCCESS! Found BMV080 at address 0x%02X <<<\n", addr);
+            APP_LOG("I2C scan success: found BMV080 at address 0x%02X", addr);
             break;
         }
     }
 
     if (detectedAddr == 0)
     {
-        Serial.println("[I2C SCAN] Probing all addresses 0x08 to 0x77 on SDA=32, SCL=25...");
+        APP_LOG("Probing all addresses 0x08 to 0x77 on SDA=32, SCL=25...");
         for (uint8_t addr = 0x08; addr <= 0x77; addr++)
         {
             Wire.beginTransmission(addr);
             if (Wire.endTransmission() == 0)
             {
                 detectedAddr = addr;
-                Serial.printf("  >>> Found I2C device at 0x%02X <<<\n", addr);
+                APP_LOG("Found I2C device at 0x%02X", addr);
                 break;
             }
         }
@@ -59,14 +60,13 @@ void SensorController::scanI2C()
 
     if (detectedAddr != 0)
     {
-        Serial.printf("[DIAGNOSIS] SUCCESS: Sensor detected on IO32/IO25 at address 0x%02X!\n", detectedAddr);
+        APP_LOG("Sensor detected on IO32/IO25 at address 0x%02X", detectedAddr);
     }
     else
     {
-        Serial.println("[DIAGNOSIS] No response on IO32/IO25. If using 4 cables without CSB tied to 3.3V,");
-        Serial.println("            connect CSB to 3.3V, or check the JST 4-pin wire order.");
+        APP_LOG("No response on IO32/IO25. If using 4 cables without CSB tied to 3.3V, connect CSB to 3.3V, or check the JST 4-pin wire order.");
     }
-    Serial.println("+======================================================+\n");
+    APP_LOG("+======================================================+");
 }
 
 bool SensorController::begin()
@@ -95,28 +95,27 @@ bool SensorController::begin()
 
     if (bmv->begin() != 0)
     {
-        Serial.printf("ERROR: BMV080 failed I2C connection on SDA=32, SCL=25 at 0x%02X\n", detectedAddr);
+        APP_LOG("BMV080 failed I2C connection on SDA=32, SCL=25 at 0x%02X", detectedAddr);
         return false;
     }
-    Serial.printf("BMV080: I2C connection OK (SDA=32, SCL=25, Address 0x%02X).\n", detectedAddr);
+    APP_LOG("I2C connection OK, address 0x%02X", detectedAddr);
 
     uint16_t status = bmv->openBmv080();
     if (status != 0)
     {
-        Serial.print("ERROR: BMV080 openBmv080 failed, status = ");
-        Serial.println(status);
+        APP_LOG("BMV080 openBmv080 failed, status = %u", status);
         return false;
     }
-    Serial.println("BMV080: Sensor initialized.");
+    APP_LOG("BMV080 initialized");
 
     // Obstruction reporting is disabled; readings are still used by the graph.
     if (!bmv->setObstructionDetection(false))
     {
-        Serial.println("WARNING: BMV080 obstruction detection could not be disabled.");
+        APP_LOG("BMV080 obstruction detection could not be disabled.");
     }
     if (!bmv->setDoVibrationFiltering(true))
     {
-        Serial.println("WARNING: BMV080 vibration filtering could not be enabled.");
+        APP_LOG("BMV080 vibration filtering could not be enabled.");
     }
 
     // FAST_RESPONSE changes the estimation algorithm, not the measurement rate.
@@ -124,17 +123,16 @@ bool SensorController::begin()
     int algorithmResult = bmv->setMeasurementAlgorithm(BALANCED);
     if (algorithmResult != 0)
     {
-        Serial.printf("WARNING: BMV080 measurement algorithm setup failed (%d).\n", algorithmResult);
+        APP_LOG("BMV080 measurement algorithm setup failed (%d).", algorithmResult);
     }
 
     int modeResult = bmv->setBmv080Mode(CONTINUOUS_MODE);
     if (modeResult != 0)
     {
-        Serial.print("ERROR: BMV080 setBmv080Mode failed, result = ");
-        Serial.println(modeResult);
+        APP_LOG("BMV080 setBmv080Mode failed, result = %d", modeResult);
         return false;
     }
-    Serial.println("BMV080: Continuous mode started (BALANCED).");
+    APP_LOG("BMV080 continuous mode started (BALANCED).");
 
     initialized = true;
     return true;

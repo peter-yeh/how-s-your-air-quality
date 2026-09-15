@@ -1,3 +1,4 @@
+#define LOG_CLASS "LoggingSerial"
 #define LOGGING_SERIAL_IMPLEMENTATION
 #include "Logger.h"
 
@@ -6,10 +7,30 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 extern StorageController storage;
 
 LoggingSerial SerialLogger(Serial);
+
+namespace
+{
+    const char *fileNameOnly(const char *path)
+    {
+        if (path == nullptr)
+        {
+            return "unknown";
+        }
+
+        const char *slash = strrchr(path, '/');
+        const char *backslash = strrchr(path, '\\');
+        if (backslash != nullptr && (slash == nullptr || backslash > slash))
+        {
+            slash = backslash;
+        }
+        return slash == nullptr ? path : slash + 1;
+    }
+}
 
 LoggingSerial::LoggingSerial(HardwareSerial &serial) : serial(serial)
 {
@@ -41,7 +62,7 @@ void LoggingSerial::enableStorage(bool enabled)
 
     if (stateMutex == nullptr || freeBatchQueue == nullptr || readyBatchQueue == nullptr)
     {
-        serial.println("Logger initialization failed.");
+        APP_LOG("Logger initialization failed.");
         return;
     }
 
@@ -54,7 +75,7 @@ void LoggingSerial::enableStorage(bool enabled)
 
     if (xQueueReceive(freeBatchQueue, &activeBatch, 0) != pdPASS)
     {
-        serial.println("Logger buffer initialization failed.");
+        APP_LOG("Logger buffer initialization failed.");
         activeBatch = nullptr;
         return;
     }
@@ -64,7 +85,7 @@ void LoggingSerial::enableStorage(bool enabled)
     {
         storageEnabled = false;
         storageTask = nullptr;
-        serial.println("Logger task creation failed.");
+        APP_LOG("Logger task creation failed.");
     }
 }
 
@@ -98,6 +119,67 @@ int LoggingSerial::printf(const char *format, ...)
 
     write(reinterpret_cast<const uint8_t *>(buffer), strlen(buffer));
     return length;
+}
+
+void LoggingSerial::log(const char *filename, const char *className, const char *functionName, const char *format, ...)
+{
+    char timestamp[24] = "time unavailable";
+    const time_t now = time(nullptr);
+    struct tm currentTime = {};
+    if (now != static_cast<time_t>(-1) &&
+        localtime_r(&now, &currentTime) != nullptr &&
+        currentTime.tm_year >= 120)
+    {
+        strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", &currentTime);
+    }
+
+    const char *safeClassName = className != nullptr ? className : "Unknown";
+    const char *safeFunctionName = functionName != nullptr ? functionName : "unknown";
+    const char *safeFormat = format != nullptr ? format : "";
+    char formattedLine[LOG_LINE_CAPACITY];
+    const int prefixLength = snprintf(
+        formattedLine,
+        sizeof(formattedLine),
+        "%s | %s | %s | %s | ",
+        timestamp,
+        fileNameOnly(filename),
+        safeClassName,
+        safeFunctionName);
+
+    if (prefixLength < 0 || static_cast<size_t>(prefixLength) >= sizeof(formattedLine) - 1)
+    {
+        return;
+    }
+
+    const size_t prefixSize = static_cast<size_t>(prefixLength);
+    const size_t bodyCapacity = sizeof(formattedLine) - prefixSize - 2;
+    va_list arguments;
+    va_start(arguments, format);
+    const int bodyLength = vsnprintf(formattedLine + prefixSize, bodyCapacity + 1, safeFormat, arguments);
+    va_end(arguments);
+
+    if (bodyLength < 0)
+    {
+        return;
+    }
+
+    size_t bodySize = static_cast<size_t>(bodyLength);
+    if (bodySize > bodyCapacity)
+    {
+        bodySize = bodyCapacity;
+    }
+
+    for (size_t index = 0; index < bodySize; ++index)
+    {
+        if (formattedLine[prefixSize + index] == '\r' || formattedLine[prefixSize + index] == '\n')
+        {
+            formattedLine[prefixSize + index] = ' ';
+        }
+    }
+
+    const size_t lineLength = prefixSize + bodySize;
+    formattedLine[lineLength] = '\n';
+    write(reinterpret_cast<const uint8_t *>(formattedLine), lineLength + 1);
 }
 
 void LoggingSerial::appendText(const uint8_t *buffer, size_t size)

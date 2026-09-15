@@ -11,5 +11,5 @@ public:
     String clockTime() const;
 
 private:
-    bool waitForTimeSync(uint32_t timeoutMs) const;
+    bool waitForTimeSync(uint32_t timeoutMs, String &progress) const;
 };

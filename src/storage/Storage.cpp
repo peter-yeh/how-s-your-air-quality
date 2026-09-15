@@ -5,6 +5,7 @@
 #include <SD.h>
 #include <SPI.h>
 #include <time.h>
+#define LOG_CLASS "StorageController"
 #include "../utilities/Logger.h"
 
 namespace
@@ -73,27 +74,26 @@ void StorageController::printDirectory(fs::FS &filesystem, const char *path)
     File directory = filesystem.open(path);
     if (!directory || !directory.isDirectory())
     {
-        Serial.println("Unable to open SD root directory.");
+        APP_LOG("Unable to open SD root directory.");
         return;
     }
 
     File entry = directory.openNextFile();
     if (!entry)
     {
-        Serial.println("SD root directory is empty.");
+        APP_LOG("SD root directory is empty.");
     }
 
     while (entry)
     {
-        Serial.print(entry.isDirectory() ? "DIR  " : "FILE ");
-        Serial.print(entry.name());
-        if (!entry.isDirectory())
+        if (entry.isDirectory())
         {
-            Serial.print("  ");
-            Serial.print(entry.size());
-            Serial.print(" bytes");
+            APP_LOG("DIR  %s", entry.name());
         }
-        Serial.println();
+        else
+        {
+            APP_LOG("FILE %s  %u bytes", entry.name(), static_cast<unsigned>(entry.size()));
+        }
         entry = directory.openNextFile();
     }
 }
@@ -107,7 +107,7 @@ bool StorageController::begin()
 
     if (storageMutex == nullptr)
     {
-        Serial.println("Storage mutex initialization failed.");
+        APP_LOG("Storage mutex initialization failed.");
         return false;
     }
 
@@ -117,16 +117,14 @@ bool StorageController::begin()
     sdSpi.begin(SD_SCK, SD_MISO, SD_MOSI, SD_CS);
     if (!SD.begin(SD_CS, sdSpi, SD_FREQUENCY))
     {
-        Serial.println("SD card initialization failed.");
+        APP_LOG("SD card initialization failed.");
         return false;
     }
 
     initialized = true;
 
-    Serial.println("SD card initialized.");
-    Serial.print("SD card size: ");
-    Serial.print(SD.cardSize() / (1024 * 1024));
-    Serial.println(" MB");
+    APP_LOG("SD card initialized.");
+    APP_LOG("SD card size: %u MB", static_cast<unsigned>(SD.cardSize() / (1024 * 1024)));
     printDirectory(SD, "/");
     return true;
 }
@@ -141,7 +139,7 @@ bool StorageController::saveToCsv(const String &data)
 
     if (!initialized)
     {
-        Serial.println("Cannot save CSV: SD card is not initialized.");
+        APP_LOG("Cannot save CSV: SD card is not initialized.");
         return false;
     }
 
@@ -150,7 +148,7 @@ bool StorageController::saveToCsv(const String &data)
     localtime_r(&now, &currentTime);
     if (currentTime.tm_year < 120)
     {
-        Serial.println("Cannot save CSV: system clock is not set.");
+        APP_LOG("Cannot save CSV: system clock is not set.");
         return false;
     }
 
@@ -164,16 +162,14 @@ bool StorageController::saveToCsv(const String &data)
 
     if (!SD.exists(monthFolder) && !SD.mkdir(monthFolder))
     {
-        Serial.print("Cannot create folder: ");
-        Serial.println(monthFolder);
+        APP_LOG("Cannot create folder: %s", monthFolder);
         return false;
     }
 
     File csvFile = SD.open(filename, FILE_APPEND);
     if (!csvFile)
     {
-        Serial.print("Cannot open CSV file: ");
-        Serial.println(filename);
+        APP_LOG("Cannot open CSV file: %s", filename);
         return false;
     }
 
@@ -183,8 +179,7 @@ bool StorageController::saveToCsv(const String &data)
 
     if (!written)
     {
-        Serial.print("Cannot write CSV row: ");
-        Serial.println(filename);
+        APP_LOG("Cannot write CSV row: %s", filename);
     }
     return written;
 }
@@ -209,7 +204,7 @@ bool StorageController::saveLogBatch(const char *data, size_t length)
 
     if (!initialized)
     {
-        Serial.println("Cannot save log: SD card is not initialized.");
+        APP_LOG("Cannot save log: SD card is not initialized.");
         return false;
     }
 
@@ -218,7 +213,7 @@ bool StorageController::saveLogBatch(const char *data, size_t length)
     localtime_r(&now, &currentTime);
     if (currentTime.tm_year < 120)
     {
-        Serial.println("Cannot save log: system clock is not set.");
+        APP_LOG("Cannot save log: system clock is not set.");
         return false;
     }
 
@@ -232,76 +227,24 @@ bool StorageController::saveLogBatch(const char *data, size_t length)
 
     if (!SD.exists(monthFolder) && !SD.mkdir(monthFolder))
     {
-        Serial.print("Cannot create log folder: ");
-        Serial.println(monthFolder);
+        APP_LOG("Cannot create log folder: %s", monthFolder);
         return false;
     }
 
     File logFile = SD.open(filename, FILE_APPEND);
     if (!logFile)
     {
-        Serial.print("Cannot open log file: ");
-        Serial.println(filename);
+        APP_LOG("Cannot open log file: %s", filename);
         return false;
     }
 
-    char timestamp[24];
-    strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", &currentTime);
-
-    size_t lineCount = 1;
-    for (size_t index = 0; index < length; ++index)
-    {
-        if (data[index] == '\n')
-        {
-            ++lineCount;
-        }
-    }
-
-    String formattedBatch;
-    formattedBatch.reserve(length + lineCount * 24);
-
-    const char *lineStart = data;
-    const char *dataEnd = data + length;
-    while (lineStart < dataEnd)
-    {
-        const char *lineEnd = lineStart;
-        while (lineEnd < dataEnd && *lineEnd != '\n')
-        {
-            ++lineEnd;
-        }
-
-        size_t lineLength = static_cast<size_t>(lineEnd - lineStart);
-        while (lineLength > 0 && lineStart[lineLength - 1] == '\r')
-        {
-            --lineLength;
-        }
-
-        if (lineLength > 0)
-        {
-            formattedBatch += '[';
-            formattedBatch += timestamp;
-            formattedBatch += "] ";
-            formattedBatch.concat(lineStart, lineLength);
-            formattedBatch += '\n';
-        }
-
-        if (lineEnd == dataEnd)
-        {
-            break;
-        }
-        lineStart = lineEnd + 1;
-    }
-
-    const size_t bytesWritten = logFile.write(
-        reinterpret_cast<const uint8_t *>(formattedBatch.c_str()),
-        formattedBatch.length());
-    const bool written = bytesWritten == formattedBatch.length() && logFile.getWriteError() == 0;
+    const size_t bytesWritten = logFile.write(reinterpret_cast<const uint8_t *>(data), length);
+    const bool written = bytesWritten == length && logFile.getWriteError() == 0;
     logFile.close();
 
     if (!written)
     {
-        Serial.print("Cannot write log file: ");
-        Serial.println(filename);
+        APP_LOG("Cannot write log file: %s", filename);
     }
     return written;
 }
@@ -310,7 +253,7 @@ bool StorageController::saveReading(const Reading &reading)
 {
     if (reading.time.length() == 0 || reading.time == "time unavailable" || reading.time == "--:--:--")
     {
-        Serial.println("Cannot save CSV: reading has no valid time.");
+        APP_LOG("Cannot save CSV: reading has no valid time.");
         return false;
     }
 
@@ -459,11 +402,11 @@ bool StorageController::streamFile(const String &path, void (*onChunk)(const Str
     File file = SD.open(path, FILE_READ);
     if (!file || file.isDirectory())
     {
-        Serial.printf("streamFile: cannot open %s\n", path.c_str());
+        APP_LOG("streamFile: cannot open %s", path.c_str());
         return false;
     }
 
-    Serial.printf("streamFile: opened %s, size %u bytes\n", path.c_str(), (unsigned)file.size());
+    APP_LOG("streamFile: opened %s, size %u bytes", path.c_str(), static_cast<unsigned>(file.size()));
     char buffer[245]; // 244 bytes + 1 null terminator
     size_t chunkIndex = 0;
     while (file.available())
@@ -473,7 +416,7 @@ bool StorageController::streamFile(const String &path, void (*onChunk)(const Str
         onChunk(String(buffer));
         chunkIndex++;
     }
-    Serial.printf("streamFile: done, %u chunk(s) sent\n", (unsigned)chunkIndex);
+    APP_LOG("streamFile: done, %u chunk(s) sent", static_cast<unsigned>(chunkIndex));
     file.close();
     return true;
 }
@@ -494,7 +437,7 @@ bool StorageController::streamRecentLines(const String &path, size_t maxLines, v
     File file = SD.open(path, FILE_READ);
     if (!file || file.isDirectory())
     {
-        Serial.printf("streamRecentLines: cannot open %s\n", path.c_str());
+        APP_LOG("streamRecentLines: cannot open %s", path.c_str());
         return false;
     }
 
@@ -512,7 +455,10 @@ bool StorageController::streamRecentLines(const String &path, size_t maxLines, v
         }
     }
 
-    Serial.printf("streamRecentLines: %s, size %u bytes, starting at %u\n", path.c_str(), (unsigned)fileSize, (unsigned)file.position());
+        APP_LOG("streamRecentLines: %s, size %u bytes, starting at %u",
+            path.c_str(),
+            static_cast<unsigned>(fileSize),
+            static_cast<unsigned>(file.position()));
     char buffer[181];
     size_t chunkIndex = 0;
     while (file.available())
@@ -522,7 +468,7 @@ bool StorageController::streamRecentLines(const String &path, size_t maxLines, v
         onChunk(String(buffer));
         chunkIndex++;
     }
-    Serial.printf("streamRecentLines: done, %u chunk(s) sent\n", (unsigned)chunkIndex);
+    APP_LOG("streamRecentLines: done, %u chunk(s) sent", static_cast<unsigned>(chunkIndex));
     file.close();
     return true;
 }
@@ -540,14 +486,14 @@ bool StorageController::testReadWrite()
 
     if (!initialized)
     {
-        Serial.println("SD read/write test skipped: card is not initialized.");
+        APP_LOG("SD read/write test skipped: card is not initialized.");
         return false;
     }
 
     File file = SD.open(TEST_FILE, FILE_WRITE);
     if (!file)
     {
-        Serial.println("SD write test failed: cannot open test file.");
+        APP_LOG("SD write test failed: cannot open test file.");
         return false;
     }
     file.println(expected);
@@ -556,14 +502,14 @@ bool StorageController::testReadWrite()
 
     if (!writeSucceeded)
     {
-        Serial.println("SD write test failed.");
+        APP_LOG("SD write test failed.");
         return false;
     }
 
     file = SD.open(TEST_FILE, FILE_READ);
     if (!file)
     {
-        Serial.println("SD read test failed: cannot open test file.");
+        APP_LOG("SD read test failed: cannot open test file.");
         return false;
     }
     String actual = file.readStringUntil('\n');
@@ -571,6 +517,6 @@ bool StorageController::testReadWrite()
     actual.trim();
 
     bool passed = actual == expected;
-    Serial.println(passed ? "SD read/write test passed." : "SD read/write test failed: data mismatch.");
+    APP_LOG("%s", passed ? "SD read/write test passed." : "SD read/write test failed: data mismatch.");
     return passed;
 }
