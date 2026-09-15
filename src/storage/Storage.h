@@ -33,17 +33,11 @@ public:
     bool listAllFiles(String &result);
     bool streamFile(const String &path, void (*onChunk)(const String &));
     bool streamRecentLines(const String &path, size_t maxLines, void (*onChunk)(const String &));
-    uint8_t getBrightness();
-    bool setBrightness(uint8_t brightness);
-    uint8_t getGraphMode();
-    bool setGraphMode(uint8_t graphMode);
 
 private:
     void printDirectory(fs::FS &filesystem, const char *path);
 
     SPIClass sdSpi;
     bool initialized = false;
-    uint8_t brightness = 128;
-    uint8_t graphMode = 0;
     SemaphoreHandle_t storageMutex = nullptr;
 };

@@ -6,6 +6,7 @@
 
 #include <NimBLEDevice.h>
 #include "storage/Storage.h"
+#include "storage/Settings.h"
 #include "display/Display.h"
 #include "../utilities/Logger.h"
 
@@ -18,6 +19,7 @@ namespace
 
     NimBLECharacteristic *dataCharacteristic = nullptr;
     StorageController *activeStorage = nullptr;
+    SettingsController *activeSettings = nullptr;
     DisplayController *activeDisplay = nullptr;
     QueueHandle_t bleTxQueue = nullptr;
     bool clientConnected = false;
@@ -100,15 +102,15 @@ namespace
             }
             else if (command.startsWith("GetSettings"))
             {
-                uint8_t brightness = activeStorage->getBrightness();
-                uint8_t graphMode = activeStorage->getGraphMode();
+                uint8_t brightness = activeSettings->getBrightness();
+                uint8_t graphMode = activeSettings->getGraphMode();
                 String response = "SETTINGS:" + String(brightness) + "," + String(graphMode);
                 Serial.printf("[CommandCallbacks] Sending settings: brightness=%u, graphMode=%u\n", brightness, graphMode);
                 sendChunk(response);
             }
             else if (command.startsWith("GetBrightness"))
             {
-                uint8_t brightness = activeStorage->getBrightness();
+                uint8_t brightness = activeSettings->getBrightness();
                 String response = "BRIGHTNESS:" + String(brightness);
                 Serial.printf("[CommandCallbacks] Sending legacy brightness: %u\n", brightness);
                 sendChunk(response);
@@ -119,7 +121,7 @@ namespace
                 uint8_t brightness = (uint8_t)brightnessStr.toInt();
                 if (brightness >= 0 && brightness <= 255)
                 {
-                    activeStorage->setBrightness(brightness);
+                    activeSettings->setBrightness(brightness);
                     if (activeDisplay)
                     {
                         activeDisplay->setBrightness(brightness);
@@ -137,7 +139,7 @@ namespace
                 int mode = modeStr.toInt();
                 if (mode >= 0 && mode <= 2)
                 {
-                    if (activeStorage->setGraphMode(static_cast<uint8_t>(mode)) && activeDisplay)
+                    if (activeSettings->setGraphMode(static_cast<uint8_t>(mode)) && activeDisplay)
                     {
                         activeDisplay->setGraphMode(mode);
                         Serial.printf("[CommandCallbacks] Graph mode set to %d\n", mode);
@@ -170,9 +172,10 @@ namespace
     };
 }
 
-bool BleServer::begin(StorageController *storage, DisplayController *display)
+bool BleServer::begin(StorageController *storage, SettingsController *settings, DisplayController *display)
 {
     activeStorage = storage;
+    activeSettings = settings;
     activeDisplay = display;
 
     NimBLEDevice::init("Air Quality Monitor");

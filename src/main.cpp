@@ -4,6 +4,7 @@
 #include <Arduino.h>
 #include "display/Display.h"
 #include "storage/Storage.h"
+#include "storage/Settings.h"
 #include "sensor/Sensor.h"
 #include "wireless/Wireless.h"
 #include "wireless/BleServer.h"
@@ -13,6 +14,7 @@
 
 DisplayController display;
 StorageController storage;
+SettingsController settings;
 SensorController sensor;
 WirelessController wireless;
 BleServer ble;
@@ -101,11 +103,11 @@ void setup()
   storage.testReadWrite();
 
   // Read brightness from storage and set it
-  uint8_t brightness = storage.getBrightness();
+  uint8_t brightness = settings.getBrightness();
   display.setBrightness(brightness);
-  display.setGraphMode(storage.getGraphMode());
+  display.setGraphMode(settings.getGraphMode());
 
-  ble.begin(&storage, &display);
+  ble.begin(&storage, &settings, &display);
 
   while (!sensor.begin())
   {

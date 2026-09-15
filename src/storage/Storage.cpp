@@ -5,7 +5,6 @@
 #include <SD.h>
 #include <SPI.h>
 #include <time.h>
-#include <Preferences.h>
 #include "../utilities/Logger.h"
 
 namespace
@@ -110,18 +109,6 @@ bool StorageController::begin()
     {
         Serial.println("Storage mutex initialization failed.");
         return false;
-    }
-
-    Preferences preferences;
-    if (preferences.begin("air_sensor", true))
-    {
-        brightness = preferences.getUChar("brightness", brightness);
-        const uint8_t storedGraphMode = preferences.getUChar("graphMode", graphMode);
-        if (storedGraphMode <= 2)
-        {
-            graphMode = storedGraphMode;
-        }
-        preferences.end();
     }
 
     pinMode(SD_CS, OUTPUT);
@@ -586,59 +573,4 @@ bool StorageController::testReadWrite()
     bool passed = actual == expected;
     Serial.println(passed ? "SD read/write test passed." : "SD read/write test failed: data mismatch.");
     return passed;
-}
-
-uint8_t StorageController::getBrightness()
-{
-    Serial.printf("getBrightness: %u\n", brightness);
-    return brightness;
-}
-
-bool StorageController::setBrightness(uint8_t brightness)
-{
-    Preferences preferences;
-    preferences.begin("air_sensor", false); // read-write mode
-    preferences.putUChar("brightness", brightness);
-    bool success = preferences.getBytesLength("brightness") > 0;
-    preferences.end();
-    if (success)
-    {
-        this->brightness = brightness;
-    }
-    Serial.printf("setBrightness: %u (success: %s)\n", brightness, success ? "true" : "false");
-    return success;
-}
-
-uint8_t StorageController::getGraphMode()
-{
-    Serial.printf("getGraphMode: %u\n", graphMode);
-    return graphMode;
-}
-
-bool StorageController::setGraphMode(uint8_t graphMode)
-{
-    if (graphMode > 2)
-    {
-        Serial.printf("setGraphMode: invalid mode %u\n", graphMode);
-        return false;
-    }
-
-    Preferences preferences;
-    if (!preferences.begin("air_sensor", false))
-    {
-        Serial.println("setGraphMode: unable to open preferences");
-        return false;
-    }
-
-    preferences.putUChar("graphMode", graphMode);
-    const bool success = preferences.getUChar("graphMode", 255) == graphMode;
-    preferences.end();
-
-    if (success)
-    {
-        this->graphMode = graphMode;
-    }
-
-    Serial.printf("setGraphMode: %u (success: %s)\n", graphMode, success ? "true" : "false");
-    return success;
 }
