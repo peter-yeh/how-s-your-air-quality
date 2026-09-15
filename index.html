@@ -9,30 +9,71 @@
 </head>
 
 <body>
-    <h1>AirQuality ESP32</h1>
-    <button id="ConnectESP32">Connect ESP32</button>
-    <div id="status">Disconnected</div>
-    <div id="brightnessControl" style="display: none;" class="control-panel">
-        <label for="brightnessSlider">Screen Brightness</label>
-        <div class="slider-container">
-            <input type="range" id="brightnessSlider" min="1" max="100" value="1" disabled>
-            <span id="brightnessValue" aria-live="polite">Loading...</span>
-        </div>
-        <div style="margin-top: 15px;">
-            <label>Graph Mode: <span id="graphModeValue" aria-live="polite">Loading...</span></label>
-            <div class="radio-group" style="margin-top: 5px;">
-                <label style="margin-right: 10px;"><input type="radio" name="graphMode" value="0" disabled>
-                    Seconds</label>
-                <label style="margin-right: 10px;"><input type="radio" name="graphMode" value="1" disabled>
-                    Minutes</label>
-                <label><input type="radio" name="graphMode" value="2" disabled> Hours</label>
+    <main class="dashboard-shell">
+        <header class="page-header">
+            <div>
+                <p class="eyebrow">ESP32 / AIR MONITOR</p>
+                <h1>Air quality console</h1>
             </div>
-        </div>
-    </div>
-    <ul id="fileList"></ul>
-    <div id="graphContainer">
-        <canvas id="graph" height="360"></canvas>
-    </div>
+            <button id="ConnectESP32" class="connect-button">Connect ESP32</button>
+        </header>
+
+        <div id="status" role="status" aria-live="polite">Disconnected</div>
+
+        <section id="brightnessControl" class="control-panel" style="display: none;" aria-labelledby="controlsTitle">
+            <div class="section-heading compact-heading">
+                <div>
+                    <p class="eyebrow">DEVICE SETTINGS</p>
+                    <h2 id="controlsTitle">Display controls</h2>
+                </div>
+            </div>
+            <div class="control-grid">
+                <div class="control-field">
+                    <label for="brightnessSlider">Screen brightness</label>
+                    <div class="slider-container">
+                        <input type="range" id="brightnessSlider" min="1" max="100" value="1" disabled>
+                        <span id="brightnessValue" aria-live="polite">Loading...</span>
+                    </div>
+                </div>
+                <div class="control-field">
+                    <label>Graph mode <span class="label-muted">/ <span id="graphModeValue"
+                                aria-live="polite">Loading...</span></span></label>
+                    <div class="radio-group">
+                        <label><input type="radio" name="graphMode" value="0" disabled> Seconds</label>
+                        <label><input type="radio" name="graphMode" value="1" disabled> Minutes</label>
+                        <label><input type="radio" name="graphMode" value="2" disabled> Hours</label>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="files-panel" aria-labelledby="fileListTitle">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">STORED READINGS</p>
+                    <h2 id="fileListTitle">Data files</h2>
+                </div>
+                <span class="section-tag">CSV</span>
+            </div>
+            <ul id="fileList" aria-label="Stored CSV readings"></ul>
+        </section>
+
+        <section id="graphContainer" class="chart-panel" aria-labelledby="chartTitle">
+            <div class="chart-header">
+                <div>
+                    <p class="eyebrow">READING HISTORY</p>
+                    <h2 id="chartTitle">Particulate matter</h2>
+                    <p id="chartSummary" class="chart-summary">Choose a CSV file to plot its readings.</p>
+                </div>
+                <span class="chart-unit">µg/m³</span>
+            </div>
+            <div class="chart-frame">
+                <canvas id="graph" role="img" aria-label="Particulate matter readings over time"></canvas>
+            </div>
+        </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
     <script src="script.js"></script>
 </body>
 

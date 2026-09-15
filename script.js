@@ -2,6 +2,7 @@ const serviceUuid = '4fa8691a-1360-4c27-ba5c-057245417c92';
 const dataUuid = '4fa8691b-1360-4c27-ba5c-057245417c92';
 const commandUuid = '4fa8691c-1360-4c27-ba5c-057245417c92';
 let dataCharacteristic, commandCharacteristic, transfer = '', transferType = '', chunkCount = 0, startTime = 0, expectedFileSize = 0, currentFileName = '';
+let airQualityChart = null;
 const $ = id => document.getElementById(id);
 const graphModeLabels = ['Seconds', 'Minutes', 'Hours'];
 
@@ -158,9 +159,9 @@ function drawGraph(csv) {
     let points = rows.map(row => ({ time: row[0], pm1: +row[1], pm25: +row[2], pm10: +row[3] })).filter(row => Number.isFinite(row.pm10));
     if (!points.length) { setStatus('CSV has no readable rows'); return; }
 
-    // Downsample to max 150 points via averaging
-    if (points.length > 150) {
-        const bucketSize = Math.ceil(points.length / 150);
+    const readingCount = points.length;
+    if (points.length > 600) {
+        const bucketSize = Math.ceil(points.length / 600);
         const downsampled = [];
         for (let i = 0; i < points.length; i += bucketSize) {
             const bucket = points.slice(i, i + bucketSize);
@@ -174,76 +175,189 @@ function drawGraph(csv) {
         points = downsampled;
     }
 
-    const pointWidth = 40, leftMargin = 70, rightMargin = 15, topMargin = 20, bottomMargin = 50;
-    const width = Math.max(900, leftMargin + rightMargin + points.length * pointWidth);
+    if (typeof Chart === 'undefined') {
+        setStatus('Chart library unavailable. Check the network connection and reload.');
+        return;
+    }
+
+    if (airQualityChart) airQualityChart.destroy();
+
+    const cssColor = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    const chartColors = {
+        pm1: cssColor('--chart-pm1') || '#29d9ad',
+        pm1Fill: cssColor('--chart-pm1-fill') || 'rgba(41, 217, 173, .12)',
+        pm25: cssColor('--chart-pm25') || '#ff8068',
+        pm25Fill: cssColor('--chart-pm25-fill') || 'rgba(255, 128, 104, .12)',
+        pm10: cssColor('--chart-pm10') || '#f0c15b',
+        pm10Fill: cssColor('--chart-pm10-fill') || 'rgba(240, 193, 91, .12)',
+        text: cssColor('--chart-text') || '#91a7a2',
+        grid: cssColor('--chart-grid') || 'rgba(132, 179, 167, .16)',
+        tooltip: cssColor('--chart-tooltip') || '#0b1715',
+        tooltipBorder: cssColor('--chart-tooltip-border') || '#23534a'
+    };
+
+    const formatTimeLabel = value => {
+        const match = value.match(/(?:T|\s)(\d{1,2}:\d{2})/);
+        return match ? match[1] : value;
+    };
+    const labels = points.map(point => formatTimeLabel(point.time));
+    const allValues = points.flatMap(point => [point.pm1, point.pm25, point.pm10]);
+    const suggestedMax = Math.ceil(Math.max(10, ...allValues) * 1.12 / 10) * 10;
     const canvas = $('graph');
-    canvas.width = width;
-    const context = canvas.getContext('2d');
-    const height = canvas.height;
-    context.clearRect(0, 0, width, height);
 
-    const allValues = points.flatMap(p => [p.pm1, p.pm25, p.pm10]);
-    const max = Math.max(10, ...allValues);
-    const sorted = [...allValues].sort((a, b) => a - b);
-    const median = sorted[Math.floor(sorted.length / 2)];
-    const graphHeight = height - topMargin - bottomMargin;
-
-    // Draw axes
-    context.strokeStyle = '#aac0ca';
-    context.lineWidth = 1;
-    context.beginPath();
-    context.moveTo(leftMargin, topMargin);
-    context.lineTo(leftMargin, height - bottomMargin);
-    context.lineTo(width - rightMargin, height - bottomMargin);
-    context.stroke();
-
-    // Y-axis labels (0, median, max)
-    context.fillStyle = '#666';
-    context.font = '12px monospace';
-    context.textAlign = 'right';
-    [0, median, max].forEach(val => {
-        const y = height - bottomMargin - (val / max) * graphHeight;
-        context.fillText(Math.round(val), leftMargin - 8, y + 4);
-    });
-
-    // Axis labels
-    context.fillStyle = '#8fffe0';
-    context.textAlign = 'center';
-    context.font = '13px system-ui';
-    context.fillText('Time (hours:minutes)', width / 2, height - 8);
-    context.save();
-    context.translate(15, height / 2);
-    context.rotate(-Math.PI / 2);
-    context.fillText('PM Concentration (µg/m³)', 0, 0);
-    context.restore();
-
-    // Plot lines
-    context.lineWidth = 2;
-    [['pm1', '#168aad'], ['pm25', '#ee6c4d'], ['pm10', '#293241']].forEach(([key, color]) => {
-        context.strokeStyle = color;
-        context.beginPath();
-        points.forEach((point, index) => {
-            const x = leftMargin + index * pointWidth;
-            const y = height - bottomMargin - (point[key] / max) * graphHeight;
-            index ? context.lineTo(x, y) : context.moveTo(x, y);
-        });
-        context.stroke();
-    });
-
-    // X-axis time labels (every ~8th point, showing HH:MM)
-    context.fillStyle = '#d7fff4';
-    context.font = '11px monospace';
-    context.textAlign = 'center';
-    const step = Math.ceil(points.length / 8);
-    points.forEach((point, index) => {
-        if (index % step === 0 || index === points.length - 1) {
-            const x = leftMargin + index * pointWidth;
-            const timeStr = point.time.split(' ')[1]?.slice(0, 5) || point.time;
-            context.fillText(timeStr, x, height - 20);
+    airQualityChart = new Chart(canvas, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [
+                {
+                    label: 'PM1.0',
+                    data: points.map(point => point.pm1),
+                    borderColor: chartColors.pm1,
+                    backgroundColor: chartColors.pm1Fill,
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    pointHoverRadius: 5,
+                    pointHoverBackgroundColor: '#ffffff',
+                    pointHoverBorderWidth: 2,
+                    tension: 0.32,
+                    fill: false,
+                    spanGaps: true
+                },
+                {
+                    label: 'PM2.5',
+                    data: points.map(point => point.pm25),
+                    borderColor: chartColors.pm25,
+                    backgroundColor: chartColors.pm25Fill,
+                    borderWidth: 2.5,
+                    pointRadius: 0,
+                    pointHoverRadius: 5,
+                    pointHoverBackgroundColor: '#ffffff',
+                    pointHoverBorderWidth: 2,
+                    tension: 0.32,
+                    fill: false,
+                    spanGaps: true
+                },
+                {
+                    label: 'PM10',
+                    data: points.map(point => point.pm10),
+                    borderColor: chartColors.pm10,
+                    backgroundColor: chartColors.pm10Fill,
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    pointHoverRadius: 5,
+                    pointHoverBackgroundColor: '#ffffff',
+                    pointHoverBorderWidth: 2,
+                    tension: 0.32,
+                    fill: false,
+                    spanGaps: true
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: {
+                duration: 550,
+                easing: 'easeOutQuart'
+            },
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            layout: {
+                padding: {
+                    top: 4,
+                    right: 10,
+                    bottom: 2,
+                    left: 4
+                }
+            },
+            plugins: {
+                legend: {
+                    position: 'top',
+                    align: 'start',
+                    labels: {
+                        color: chartColors.text,
+                        usePointStyle: true,
+                        pointStyle: 'line',
+                        boxWidth: 28,
+                        padding: 22,
+                        font: {
+                            family: 'Aptos, Segoe UI, sans-serif',
+                            size: 12,
+                            weight: '600'
+                        }
+                    }
+                },
+                tooltip: {
+                    backgroundColor: chartColors.tooltip,
+                    borderColor: chartColors.tooltipBorder,
+                    borderWidth: 1,
+                    titleColor: '#effffb',
+                    bodyColor: '#d4e7e2',
+                    padding: 12,
+                    displayColors: true,
+                    callbacks: {
+                        title: items => points[items[0].dataIndex]?.time || '',
+                        label: context => ` ${context.dataset.label}: ${Number(context.raw).toFixed(1)} µg/m³`
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    border: {
+                        display: false
+                    },
+                    grid: {
+                        display: false
+                    },
+                    ticks: {
+                        color: chartColors.text,
+                        maxTicksLimit: 8,
+                        maxRotation: 0,
+                        padding: 8,
+                        font: {
+                            family: 'Aptos, Segoe UI, sans-serif',
+                            size: 11
+                        }
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    suggestedMax,
+                    border: {
+                        display: false
+                    },
+                    grid: {
+                        color: chartColors.grid,
+                        drawTicks: false
+                    },
+                    ticks: {
+                        color: chartColors.text,
+                        padding: 10,
+                        font: {
+                            family: 'Aptos, Segoe UI, sans-serif',
+                            size: 11
+                        }
+                    },
+                    title: {
+                        display: true,
+                        text: 'µg/m³',
+                        color: chartColors.text,
+                        font: {
+                            family: 'Aptos, Segoe UI, sans-serif',
+                            size: 11,
+                            weight: '600'
+                        }
+                    }
+                }
+            }
         }
     });
 
-    setStatus(`CSV loaded: ${points.length} reading(s)`);
+    $('chartSummary').textContent = `${readingCount.toLocaleString()} readings${readingCount > points.length ? ` · ${points.length.toLocaleString()} plotted` : ''}`;
+    setStatus(`CSV loaded: ${readingCount.toLocaleString()} reading(s)`);
 }
 
 $('ConnectESP32').onclick = async () => {
