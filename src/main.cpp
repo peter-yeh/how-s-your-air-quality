@@ -97,7 +97,7 @@ void setup()
   wireless.begin(WIFI_SSID, WIFI_PASSWORD, 8 * 60 * 60);
 
   const bool storageReady = storage.begin();
-  // SerialLogger.enableStorage(storageReady);
+  SerialLogger.enableStorage(storageReady);
   storage.testReadWrite();
 
   // Read brightness from storage and set it

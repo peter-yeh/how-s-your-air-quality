@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include <FS.h>
 #include <SPI.h>
+#include <freertos/semphr.h>
 
 struct Reading
 {
@@ -26,6 +27,7 @@ public:
     bool testReadWrite();
     bool saveToCsv(const String &data);
     bool saveLog(const String &message);
+    bool saveLogBatch(const char *data, size_t length);
     bool saveReading(const Reading &reading);
     bool listCsvFiles(String &result);
     bool listAllFiles(String &result);
@@ -40,4 +42,5 @@ private:
     SPIClass sdSpi;
     bool initialized = false;
     uint8_t brightness = 128;
+    SemaphoreHandle_t storageMutex = nullptr;
 };

@@ -37,6 +37,32 @@ namespace
         fullPath += filename;
         return fullPath;
     }
+
+    class StorageLock
+    {
+    public:
+        explicit StorageLock(SemaphoreHandle_t mutex) : mutex(mutex)
+        {
+            locked = mutex != nullptr && xSemaphoreTake(mutex, portMAX_DELAY) == pdPASS;
+        }
+
+        ~StorageLock()
+        {
+            if (locked)
+            {
+                xSemaphoreGive(mutex);
+            }
+        }
+
+        bool acquired() const
+        {
+            return locked;
+        }
+
+    private:
+        SemaphoreHandle_t mutex;
+        bool locked = false;
+    };
 }
 
 StorageController::StorageController() : sdSpi(HSPI)
@@ -75,6 +101,17 @@ void StorageController::printDirectory(fs::FS &filesystem, const char *path)
 
 bool StorageController::begin()
 {
+    if (storageMutex == nullptr)
+    {
+        storageMutex = xSemaphoreCreateMutex();
+    }
+
+    if (storageMutex == nullptr)
+    {
+        Serial.println("Storage mutex initialization failed.");
+        return false;
+    }
+
     Preferences preferences;
     if (preferences.begin("air_sensor", true))
     {
@@ -104,6 +141,12 @@ bool StorageController::begin()
 
 bool StorageController::saveToCsv(const String &data)
 {
+    StorageLock lock(storageMutex);
+    if (!lock.acquired())
+    {
+        return false;
+    }
+
     if (!initialized)
     {
         Serial.println("Cannot save CSV: SD card is not initialized.");
@@ -156,6 +199,22 @@ bool StorageController::saveToCsv(const String &data)
 
 bool StorageController::saveLog(const String &message)
 {
+    return saveLogBatch(message.c_str(), message.length());
+}
+
+bool StorageController::saveLogBatch(const char *data, size_t length)
+{
+    if (data == nullptr || length == 0)
+    {
+        return true;
+    }
+
+    StorageLock lock(storageMutex);
+    if (!lock.acquired())
+    {
+        return false;
+    }
+
     if (!initialized)
     {
         Serial.println("Cannot save log: SD card is not initialized.");
@@ -196,11 +255,55 @@ bool StorageController::saveLog(const String &message)
 
     char timestamp[24];
     strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", &currentTime);
-    logFile.print("[");
-    logFile.print(timestamp);
-    logFile.print("] ");
-    logFile.println(message);
-    const bool written = logFile.getWriteError() == 0;
+
+    size_t lineCount = 1;
+    for (size_t index = 0; index < length; ++index)
+    {
+        if (data[index] == '\n')
+        {
+            ++lineCount;
+        }
+    }
+
+    String formattedBatch;
+    formattedBatch.reserve(length + lineCount * 24);
+
+    const char *lineStart = data;
+    const char *dataEnd = data + length;
+    while (lineStart < dataEnd)
+    {
+        const char *lineEnd = lineStart;
+        while (lineEnd < dataEnd && *lineEnd != '\n')
+        {
+            ++lineEnd;
+        }
+
+        size_t lineLength = static_cast<size_t>(lineEnd - lineStart);
+        while (lineLength > 0 && lineStart[lineLength - 1] == '\r')
+        {
+            --lineLength;
+        }
+
+        if (lineLength > 0)
+        {
+            formattedBatch += '[';
+            formattedBatch += timestamp;
+            formattedBatch += "] ";
+            formattedBatch.concat(lineStart, lineLength);
+            formattedBatch += '\n';
+        }
+
+        if (lineEnd == dataEnd)
+        {
+            break;
+        }
+        lineStart = lineEnd + 1;
+    }
+
+    const size_t bytesWritten = logFile.write(
+        reinterpret_cast<const uint8_t *>(formattedBatch.c_str()),
+        formattedBatch.length());
+    const bool written = bytesWritten == formattedBatch.length() && logFile.getWriteError() == 0;
     logFile.close();
 
     if (!written)
@@ -246,6 +349,12 @@ bool StorageController::saveReading(const Reading &reading)
 
 bool StorageController::listCsvFiles(String &result)
 {
+    StorageLock lock(storageMutex);
+    if (!lock.acquired())
+    {
+        return false;
+    }
+
     if (!initialized)
     {
         return false;
@@ -294,6 +403,12 @@ bool StorageController::listCsvFiles(String &result)
 
 bool StorageController::listAllFiles(String &result)
 {
+    StorageLock lock(storageMutex);
+    if (!lock.acquired())
+    {
+        return false;
+    }
+
     if (!initialized)
     {
         return false;
@@ -338,6 +453,12 @@ bool StorageController::listAllFiles(String &result)
 
 bool StorageController::streamFile(const String &path, void (*onChunk)(const String &))
 {
+    StorageLock lock(storageMutex);
+    if (!lock.acquired())
+    {
+        return false;
+    }
+
     if (!initialized || !onChunk || !path.startsWith("/") || path.indexOf("..") >= 0)
     {
         return false;
@@ -367,6 +488,12 @@ bool StorageController::streamFile(const String &path, void (*onChunk)(const Str
 
 bool StorageController::streamRecentLines(const String &path, size_t maxLines, void (*onChunk)(const String &))
 {
+    StorageLock lock(storageMutex);
+    if (!lock.acquired())
+    {
+        return false;
+    }
+
     if (!initialized || !onChunk || !path.startsWith("/") || path.indexOf("..") >= 0)
     {
         return false;
@@ -410,6 +537,12 @@ bool StorageController::streamRecentLines(const String &path, size_t maxLines, v
 
 bool StorageController::testReadWrite()
 {
+    StorageLock lock(storageMutex);
+    if (!lock.acquired())
+    {
+        return false;
+    }
+
     constexpr char TEST_FILE[] = "/sd_test.txt";
     const String expected = "ESP32 SD read/write test";
 
