@@ -15,16 +15,17 @@
     <div id="brightnessControl" style="display: none;" class="control-panel">
         <label for="brightnessSlider">Screen Brightness</label>
         <div class="slider-container">
-            <input type="range" id="brightnessSlider" min="1" max="100" value="50">
-            <span id="brightnessValue">50%</span>
+            <input type="range" id="brightnessSlider" min="1" max="100" value="1" disabled>
+            <span id="brightnessValue" aria-live="polite">Loading...</span>
         </div>
         <div style="margin-top: 15px;">
-            <label>Graph Mode:</label>
+            <label>Graph Mode: <span id="graphModeValue" aria-live="polite">Loading...</span></label>
             <div class="radio-group" style="margin-top: 5px;">
-                <label style="margin-right: 10px;"><input type="radio" name="graphMode" value="0"> Seconds</label>
-                <label style="margin-right: 10px;"><input type="radio" name="graphMode" value="1" checked>
+                <label style="margin-right: 10px;"><input type="radio" name="graphMode" value="0" disabled>
+                    Seconds</label>
+                <label style="margin-right: 10px;"><input type="radio" name="graphMode" value="1" disabled>
                     Minutes</label>
-                <label><input type="radio" name="graphMode" value="2"> Hours</label>
+                <label><input type="radio" name="graphMode" value="2" disabled> Hours</label>
             </div>
         </div>
     </div>

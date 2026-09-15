@@ -3,6 +3,7 @@ const dataUuid = '4fa8691b-1360-4c27-ba5c-057245417c92';
 const commandUuid = '4fa8691c-1360-4c27-ba5c-057245417c92';
 let dataCharacteristic, commandCharacteristic, transfer = '', transferType = '', chunkCount = 0, startTime = 0, expectedFileSize = 0, currentFileName = '';
 const $ = id => document.getElementById(id);
+const graphModeLabels = ['Seconds', 'Minutes', 'Hours'];
 
 function setStatus(message) { $('status').textContent = message; }
 
@@ -14,15 +15,18 @@ function formatFileSize(bytes) {
 
 function applySettings(brightness0to255, graphMode) {
     const brightnessPercent = Math.round((brightness0to255 / 255) * 100);
-    $('brightnessSlider').value = brightnessPercent;
+    const brightnessSlider = $('brightnessSlider');
+    brightnessSlider.value = brightnessPercent;
+    brightnessSlider.disabled = false;
     $('brightnessValue').textContent = brightnessPercent + '%';
 
-    const graphModeRadio = document.querySelector(`input[name="graphMode"][value="${graphMode}"]`);
-    if (graphModeRadio) {
-        graphModeRadio.checked = true;
-    }
+    document.querySelectorAll('input[name="graphMode"]').forEach(radio => {
+        radio.disabled = false;
+        radio.checked = radio.value === String(graphMode);
+    });
+    $('graphModeValue').textContent = graphModeLabels[graphMode];
 
-    console.log(`[applySettings] Brightness: ${brightness0to255} (0-255) = ${brightnessPercent}%, graph mode: ${graphMode}`);
+    console.log(`[applySettings] Brightness: ${brightness0to255} (0-255) = ${brightnessPercent}%, graph mode: ${graphModeLabels[graphMode]}`);
 }
 
 function receivedData(event) {
