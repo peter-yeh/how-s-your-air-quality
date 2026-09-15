@@ -98,11 +98,19 @@ namespace
                     Serial.println("[CommandCallbacks] Failed to list CSV files");
                 }
             }
+            else if (command.startsWith("GetSettings"))
+            {
+                uint8_t brightness = activeStorage->getBrightness();
+                uint8_t graphMode = activeStorage->getGraphMode();
+                String response = "SETTINGS:" + String(brightness) + "," + String(graphMode);
+                Serial.printf("[CommandCallbacks] Sending settings: brightness=%u, graphMode=%u\n", brightness, graphMode);
+                sendChunk(response);
+            }
             else if (command.startsWith("GetBrightness"))
             {
                 uint8_t brightness = activeStorage->getBrightness();
                 String response = "BRIGHTNESS:" + String(brightness);
-                Serial.printf("[CommandCallbacks] Sending brightness: %u\n", brightness);
+                Serial.printf("[CommandCallbacks] Sending legacy brightness: %u\n", brightness);
                 sendChunk(response);
             }
             else if (command.startsWith("SetBrightness:"))
@@ -129,10 +137,14 @@ namespace
                 int mode = modeStr.toInt();
                 if (mode >= 0 && mode <= 2)
                 {
-                    if (activeDisplay)
+                    if (activeStorage->setGraphMode(static_cast<uint8_t>(mode)) && activeDisplay)
                     {
                         activeDisplay->setGraphMode(mode);
                         Serial.printf("[CommandCallbacks] Graph mode set to %d\n", mode);
+                    }
+                    else
+                    {
+                        Serial.printf("[CommandCallbacks] Failed to save graph mode %d\n", mode);
                     }
                 }
             }

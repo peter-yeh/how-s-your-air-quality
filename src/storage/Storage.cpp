@@ -116,6 +116,11 @@ bool StorageController::begin()
     if (preferences.begin("air_sensor", true))
     {
         brightness = preferences.getUChar("brightness", brightness);
+        const uint8_t storedGraphMode = preferences.getUChar("graphMode", graphMode);
+        if (storedGraphMode <= 2)
+        {
+            graphMode = storedGraphMode;
+        }
         preferences.end();
     }
 
@@ -601,5 +606,39 @@ bool StorageController::setBrightness(uint8_t brightness)
         this->brightness = brightness;
     }
     Serial.printf("setBrightness: %u (success: %s)\n", brightness, success ? "true" : "false");
+    return success;
+}
+
+uint8_t StorageController::getGraphMode()
+{
+    Serial.printf("getGraphMode: %u\n", graphMode);
+    return graphMode;
+}
+
+bool StorageController::setGraphMode(uint8_t graphMode)
+{
+    if (graphMode > 2)
+    {
+        Serial.printf("setGraphMode: invalid mode %u\n", graphMode);
+        return false;
+    }
+
+    Preferences preferences;
+    if (!preferences.begin("air_sensor", false))
+    {
+        Serial.println("setGraphMode: unable to open preferences");
+        return false;
+    }
+
+    preferences.putUChar("graphMode", graphMode);
+    const bool success = preferences.getUChar("graphMode", 255) == graphMode;
+    preferences.end();
+
+    if (success)
+    {
+        this->graphMode = graphMode;
+    }
+
+    Serial.printf("setGraphMode: %u (success: %s)\n", graphMode, success ? "true" : "false");
     return success;
 }

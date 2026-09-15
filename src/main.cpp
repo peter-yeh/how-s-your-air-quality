@@ -103,6 +103,7 @@ void setup()
   // Read brightness from storage and set it
   uint8_t brightness = storage.getBrightness();
   display.setBrightness(brightness);
+  display.setGraphMode(storage.getGraphMode());
 
   ble.begin(&storage, &display);
 

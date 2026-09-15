@@ -12,19 +12,35 @@ function formatFileSize(bytes) {
     return `${mb.toFixed(2)} MB`;
 }
 
+function applySettings(brightness0to255, graphMode) {
+    const brightnessPercent = Math.round((brightness0to255 / 255) * 100);
+    $('brightnessSlider').value = brightnessPercent;
+    $('brightnessValue').textContent = brightnessPercent + '%';
+
+    const graphModeRadio = document.querySelector(`input[name="graphMode"][value="${graphMode}"]`);
+    if (graphModeRadio) {
+        graphModeRadio.checked = true;
+    }
+
+    console.log(`[applySettings] Brightness: ${brightness0to255} (0-255) = ${brightnessPercent}%, graph mode: ${graphMode}`);
+}
+
 function receivedData(event) {
     try {
         console.log(`[receivedData] Event received with ${event.target.value.byteLength} bytes`);
         const chunk = new TextDecoder().decode(event.target.value);
 
-        // Check if this is a brightness response
-        if (chunk.startsWith('BRIGHTNESS:')) {
-            const brightnessStr = chunk.substring(11).trim();
-            const brightness0to255 = parseInt(brightnessStr, 10);
-            const brightnessPercent = Math.round((brightness0to255 / 255) * 100);
-            console.log(`[receivedData] Brightness response: ${brightness0to255} (0-255) = ${brightnessPercent}%`);
-            $('brightnessSlider').value = brightnessPercent;
-            $('brightnessValue').textContent = brightnessPercent + '%';
+        if (chunk.startsWith('SETTINGS:')) {
+            const values = chunk.substring('SETTINGS:'.length).trim().split(',');
+            const brightness0to255 = Number(values[0]);
+            const graphMode = Number(values[1]);
+
+            if (Number.isInteger(brightness0to255) && brightness0to255 >= 0 && brightness0to255 <= 255 &&
+                Number.isInteger(graphMode) && graphMode >= 0 && graphMode <= 2) {
+                applySettings(brightness0to255, graphMode);
+            } else {
+                console.error(`[receivedData] Invalid settings response: ${chunk}`);
+            }
             return;
         }
 
@@ -244,15 +260,15 @@ $('ConnectESP32').onclick = async () => {
         await dataCharacteristic.startNotifications();
         dataCharacteristic.addEventListener('characteristicvaluechanged', receivedData);
 
-        setStatus(`Connected to ${device.name || 'ESP32'}, fetching files...`);
+        setStatus(`Connected to ${device.name || 'ESP32'}, fetching settings and files...`);
         console.info('[ConnectESP32] Connected to Bluetooth device.');
 
         // Show brightness control
         $('brightnessControl').style.display = 'block';
 
-        // Request current brightness from ESP32
-        await commandCharacteristic.writeValue(new TextEncoder().encode('GetBrightness'));
-        console.log('[ConnectESP32] GetBrightness command sent');
+        // Request current display settings from ESP32
+        await commandCharacteristic.writeValue(new TextEncoder().encode('GetSettings'));
+        console.log('[ConnectESP32] GetSettings command sent');
 
         // Request file list from ESP32
         transferType = 'list';
