@@ -5,6 +5,9 @@ let dataCharacteristic, commandCharacteristic, transfer = '', transferType = '',
 let airQualityChart = null;
 const $ = id => document.getElementById(id);
 const graphModeLabels = ['Seconds', 'Minutes', 'Hours'];
+const chartZoomPluginAvailable = typeof Chart !== 'undefined' && typeof ChartZoom !== 'undefined';
+
+if (chartZoomPluginAvailable) Chart.register(ChartZoom);
 
 function setStatus(message) { $('status').textContent = message; }
 
@@ -160,8 +163,8 @@ function drawGraph(csv) {
     if (!points.length) { setStatus('CSV has no readable rows'); return; }
 
     const readingCount = points.length;
-    if (points.length > 600) {
-        const bucketSize = Math.ceil(points.length / 600);
+    if (points.length > 1200) {
+        const bucketSize = Math.ceil(points.length / 1200);
         const downsampled = [];
         for (let i = 0; i < points.length; i += bucketSize) {
             const bucket = points.slice(i, i + bucketSize);
@@ -302,7 +305,42 @@ function drawGraph(csv) {
                         title: items => points[items[0].dataIndex]?.time || '',
                         label: context => ` ${context.dataset.label}: ${Number(context.raw).toFixed(1)} µg/m³`
                     }
-                }
+                },
+                ...(chartZoomPluginAvailable ? {
+                    zoom: {
+                        limits: {
+                            x: {
+                                min: 'original',
+                                max: 'original'
+                            },
+                            y: {
+                                min: 'original',
+                                max: 'original'
+                            }
+                        },
+                        pan: {
+                            enabled: true,
+                            mode: 'xy',
+                            threshold: 8
+                        },
+                        zoom: {
+                            wheel: {
+                                enabled: true,
+                                speed: 0.08
+                            },
+                            pinch: {
+                                enabled: true
+                            },
+                            drag: {
+                                enabled: true,
+                                backgroundColor: 'rgba(41, 217, 173, .12)',
+                                borderColor: chartColors.pm1,
+                                borderWidth: 1
+                            },
+                            mode: 'xy'
+                        }
+                    }
+                } : {})
             },
             scales: {
                 x: {
@@ -359,6 +397,34 @@ function drawGraph(csv) {
     $('chartSummary').textContent = `${readingCount.toLocaleString()} readings${readingCount > points.length ? ` · ${points.length.toLocaleString()} plotted` : ''}`;
     setStatus(`CSV loaded: ${readingCount.toLocaleString()} reading(s)`);
 }
+
+function adjustChartZoom(factor) {
+    if (!airQualityChart) {
+        setStatus('Load a CSV file before zooming');
+        return;
+    }
+    if (!chartZoomPluginAvailable) {
+        setStatus('Chart zoom is unavailable. Check the network connection and reload.');
+        return;
+    }
+    airQualityChart.zoom(factor);
+}
+
+function resetChartZoom() {
+    if (!airQualityChart) {
+        setStatus('Load a CSV file before resetting the zoom');
+        return;
+    }
+    if (!chartZoomPluginAvailable) {
+        setStatus('Chart zoom is unavailable. Check the network connection and reload.');
+        return;
+    }
+    airQualityChart.resetZoom();
+}
+
+$('zoomIn').addEventListener('click', () => adjustChartZoom(1.35));
+$('zoomOut').addEventListener('click', () => adjustChartZoom(0.74));
+$('resetZoom').addEventListener('click', resetChartZoom);
 
 $('ConnectESP32').onclick = async () => {
     try {

@@ -65,7 +65,17 @@
                     <h2 id="chartTitle">Particulate matter</h2>
                     <p id="chartSummary" class="chart-summary">Choose a CSV file to plot its readings.</p>
                 </div>
-                <span class="chart-unit">µg/m³</span>
+                <div class="chart-actions">
+                    <span class="chart-unit">µg/m³</span>
+                    <div class="chart-tools" aria-label="Chart zoom controls">
+                        <button id="zoomOut" class="chart-tool" type="button" title="Zoom out"
+                            aria-label="Zoom out">-</button>
+                        <button id="zoomIn" class="chart-tool" type="button" title="Zoom in"
+                            aria-label="Zoom in">+</button>
+                        <button id="resetZoom" class="chart-tool chart-tool-reset" type="button"
+                            title="Reset chart zoom" aria-label="Reset chart zoom">Reset</button>
+                    </div>
+                </div>
             </div>
             <div class="chart-frame">
                 <canvas id="graph" role="img" aria-label="Particulate matter readings over time"></canvas>
@@ -74,6 +84,8 @@
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.2.0/dist/chartjs-plugin-zoom.min.js"></script>
     <script src="script.js"></script>
 </body>
 

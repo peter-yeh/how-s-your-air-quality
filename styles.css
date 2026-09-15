@@ -241,6 +241,45 @@ input[type="radio"] {
     letter-spacing: .05em;
 }
 
+.chart-actions {
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 10px;
+}
+
+.chart-tools {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.chart-tool {
+    min-width: 32px;
+    height: 30px;
+    padding: 0 8px;
+    border: 1px solid #1a5145;
+    border-radius: 5px;
+    color: var(--ink);
+    background: #061512;
+    font-size: .9rem;
+    font-weight: 700;
+    line-height: 1;
+    transition: border-color .2s ease, color .2s ease, background-color .2s ease;
+}
+
+.chart-tool:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: #0c251f;
+}
+
+.chart-tool-reset {
+    font-size: .72rem;
+    font-weight: 600;
+}
+
 #fileList {
     max-height: 220px;
     margin: 18px 0 0;
@@ -346,6 +385,10 @@ input[type="radio"] {
 
     .chart-panel {
         padding: 18px 14px 14px;
+    }
+
+    .chart-actions {
+        gap: 8px;
     }
 
     .chart-frame {
