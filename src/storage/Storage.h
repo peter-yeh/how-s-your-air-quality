@@ -39,4 +39,5 @@ private:
 
     SPIClass sdSpi;
     bool initialized = false;
+    uint8_t brightness = 128;
 };

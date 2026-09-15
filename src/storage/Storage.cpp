@@ -75,6 +75,13 @@ void StorageController::printDirectory(fs::FS &filesystem, const char *path)
 
 bool StorageController::begin()
 {
+    Preferences preferences;
+    if (preferences.begin("air_sensor", true))
+    {
+        brightness = preferences.getUChar("brightness", brightness);
+        preferences.end();
+    }
+
     pinMode(SD_CS, OUTPUT);
     digitalWrite(SD_CS, HIGH);
 
@@ -445,10 +452,6 @@ bool StorageController::testReadWrite()
 
 uint8_t StorageController::getBrightness()
 {
-    Preferences preferences;
-    preferences.begin("air_sensor", true);                        // read-only mode
-    uint8_t brightness = preferences.getUChar("brightness", 128); // default 128 (50%)
-    preferences.end();
     Serial.printf("getBrightness: %u\n", brightness);
     return brightness;
 }
@@ -460,6 +463,10 @@ bool StorageController::setBrightness(uint8_t brightness)
     preferences.putUChar("brightness", brightness);
     bool success = preferences.getBytesLength("brightness") > 0;
     preferences.end();
+    if (success)
+    {
+        this->brightness = brightness;
+    }
     Serial.printf("setBrightness: %u (success: %s)\n", brightness, success ? "true" : "false");
     return success;
 }

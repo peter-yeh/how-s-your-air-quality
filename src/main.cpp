@@ -89,9 +89,6 @@ void setup()
 {
   Serial.begin(115200);
   display.begin();
-  const bool storageReady = storage.begin();
-  SerialLogger.enableStorage(storageReady);
-  storage.testReadWrite();
 
   // Read brightness from storage and set it
   uint8_t brightness = storage.getBrightness();
@@ -99,6 +96,10 @@ void setup()
 
   wireless.begin("AnsonGarden", "66485973", 8 * 60 * 60);
   ble.begin(&storage, &display);
+
+  const bool storageReady = storage.begin();
+  SerialLogger.enableStorage(storageReady);
+  storage.testReadWrite();
 
   Serial.println("--- BMV080 Initializing ---");
   while (!sensor.begin())
