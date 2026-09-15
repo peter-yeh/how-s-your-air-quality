@@ -200,7 +200,7 @@ void GraphPlotter::draw(Adafruit_GFX &display)
     const History &selectedHistory = histories[modeIndex(currentMode)];
     const Point *history = selectedHistory.samples;
     const uint8_t count = selectedHistory.count;
-    const uint32_t span = count > 0 ? count - 1 : 0;
+    const uint32_t span = count;
 
     if (count == 0)
     {
