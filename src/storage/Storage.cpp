@@ -181,6 +181,7 @@ bool StorageController::saveToCsv(const String &data)
     {
         APP_LOG("Cannot write CSV row: %s", filename);
     }
+    APP_LOG("CSV row written: %s", data.c_str());
     return written;
 }
 

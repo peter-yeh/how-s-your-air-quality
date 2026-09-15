@@ -42,12 +42,11 @@ void airQualityTask(void *pvParameters)
   while (true)
   {
     currentTick = millis();
-    latestReading = sensor.read();
-    stats.addSample(latestReading.pm1, latestReading.pm25, latestReading.pm10);
-    minuteStats.addSample(latestReading.pm1, latestReading.pm25, latestReading.pm10);
 
     if (currentTick - lastMinuteTick >= 60000) // minute task
     {
+      APP_LOG("Executing the tasks every minute");
+
       lastMinuteTick = currentTick;
 
       AirQualitySummary summary;
@@ -75,7 +74,12 @@ void airQualityTask(void *pvParameters)
 
     if (currentTick - lastSecondTick >= 1000) // second task
     {
+      APP_LOG("Executing the tasks every second");
       lastSecondTick = currentTick;
+
+      latestReading = sensor.read();
+      stats.addSample(latestReading.pm1, latestReading.pm25, latestReading.pm10);
+      minuteStats.addSample(latestReading.pm1, latestReading.pm25, latestReading.pm10);
 
       const bool redrawGraph = display.addGraphSample(latestReading.pm1, latestReading.pm25, latestReading.pm10);
 
@@ -88,7 +92,7 @@ void airQualityTask(void *pvParameters)
                         summary, hasNewSummary, redrawGraph);
     }
 
-    vTaskDelay(pdMS_TO_TICKS(100));
+    vTaskDelay(pdMS_TO_TICKS(200));
   }
 }
 
@@ -97,7 +101,6 @@ void setup()
 
   Serial.begin(115200);
   display.begin();
-  APP_LOG("BMV080 initializing");
 
   wireless.begin(WIFI_SSID, WIFI_PASSWORD, 8 * 60 * 60);
 
