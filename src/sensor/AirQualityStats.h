@@ -1,5 +1,6 @@
 #pragma once
 
+#include <Arduino.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -17,6 +18,8 @@ struct AirQualitySummary
     float highPm10 = 0;
     float averagePm10 = 0;
     float medianPm10 = 0;
+
+    String toString() const;
 };
 
 class AirQualityStats

@@ -6,6 +6,20 @@ namespace
 {
     constexpr size_t MEDIAN_SAMPLE_COUNT = 5;
 
+    void appendMetric(String &result, const char *label, float low, float median, float high, float average)
+    {
+        result += label;
+        result += "{low=";
+        result += String(low, 2);
+        result += ", median=";
+        result += String(median, 2);
+        result += ", high=";
+        result += String(high, 2);
+        result += ", average=";
+        result += String(average, 2);
+        result += "}";
+    }
+
     float median(const float *values, size_t count)
     {
         float sortedValues[MEDIAN_SAMPLE_COUNT];
@@ -17,6 +31,18 @@ namespace
         }
         return (sortedValues[count / 2 - 1] + sortedValues[count / 2]) / 2.0f;
     }
+}
+
+String AirQualitySummary::toString() const
+{
+    String result;
+    result.reserve(192);
+    appendMetric(result, "PM1", lowPm1, medianPm1, highPm1, averagePm1);
+    result += " | ";
+    appendMetric(result, "PM2.5", lowPm25, medianPm25, highPm25, averagePm25);
+    result += " | ";
+    appendMetric(result, "PM10", lowPm10, medianPm10, highPm10, averagePm10);
+    return result;
 }
 
 void AirQualityStats::MedianEstimator::add(float value)
@@ -167,10 +193,12 @@ bool AirQualityStats::getSummary(AirQualitySummary &summary) const
     summary.highPm1 = highPm1;
     summary.averagePm1 = static_cast<float>(sumPm1 / static_cast<double>(count));
     summary.medianPm1 = medianPm1.get();
+
     summary.lowPm25 = lowPm25;
     summary.highPm25 = highPm25;
     summary.averagePm25 = static_cast<float>(sumPm25 / static_cast<double>(count));
     summary.medianPm25 = medianPm25.get();
+
     summary.lowPm10 = lowPm10;
     summary.highPm10 = highPm10;
     summary.averagePm10 = static_cast<float>(sumPm10 / static_cast<double>(count));

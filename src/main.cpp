@@ -70,6 +70,8 @@ void airQualityTask(void *pvParameters)
       // Burn-in shift for the display to prevent screen burn-in
       display.shiftScreen(burnInShiftX[shiftIndex], burnInShiftY[shiftIndex]);
       shiftIndex = (shiftIndex + 1) % 4;
+
+      APP_LOG("Minute summary: %s", summary.toString().c_str());
     }
 
     if (currentTick - lastSecondTick >= 1000) // second task
