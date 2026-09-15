@@ -9,6 +9,8 @@
 #include "wireless/BleServer.h"
 #include "Logger.h"
 
+#include "utilities/secrets.h"
+
 DisplayController display;
 StorageController storage;
 SensorController sensor;
@@ -92,7 +94,7 @@ void setup()
   display.begin();
   Serial.println("--- BMV080 Initializing ---");
 
-  wireless.begin("AnsonGarden", "66485973", 8 * 60 * 60);
+  wireless.begin(WIFI_SSID, WIFI_PASSWORD, 8 * 60 * 60);
 
   const bool storageReady = storage.begin();
   // SerialLogger.enableStorage(storageReady);
