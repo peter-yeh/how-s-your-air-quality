@@ -43,10 +43,29 @@ void airQualityTask(void *pvParameters)
   {
     currentTick = millis();
 
+    if (currentTick - lastSecondTick >= 1000) // second task
+    {
+      lastSecondTick = currentTick;
+
+      latestReading = sensor.read();
+      APP_LOG("Latest sensor value: PM1=%.2f, PM2.5=%.2f, PM10=%.2f", latestReading.pm1, latestReading.pm25, latestReading.pm10);
+
+      stats.addSample(latestReading.pm1, latestReading.pm25, latestReading.pm10);
+      minuteStats.addSample(latestReading.pm1, latestReading.pm25, latestReading.pm10);
+
+      const bool redrawGraph = display.addGraphSample(latestReading.pm1, latestReading.pm25, latestReading.pm10);
+
+      AirQualitySummary summary;
+      const bool hasNewSummary = stats.getSummary(summary);
+
+      display.renderNow(latestReading.pm1, latestReading.pm25, latestReading.pm10,
+                        currentTick / 1000, wireless.clockTime().c_str(),
+                        wireless.connected(), ble.connected(),
+                        summary, hasNewSummary, redrawGraph);
+    }
+
     if (currentTick - lastMinuteTick >= 60000) // minute task
     {
-      APP_LOG("Executing the tasks every minute");
-
       lastMinuteTick = currentTick;
 
       AirQualitySummary summary;
@@ -72,26 +91,6 @@ void airQualityTask(void *pvParameters)
       shiftIndex = (shiftIndex + 1) % 4;
 
       APP_LOG("Minute summary: %s", summary.toString().c_str());
-    }
-
-    if (currentTick - lastSecondTick >= 1000) // second task
-    {
-      APP_LOG("Executing the tasks every second");
-      lastSecondTick = currentTick;
-
-      latestReading = sensor.read();
-      stats.addSample(latestReading.pm1, latestReading.pm25, latestReading.pm10);
-      minuteStats.addSample(latestReading.pm1, latestReading.pm25, latestReading.pm10);
-
-      const bool redrawGraph = display.addGraphSample(latestReading.pm1, latestReading.pm25, latestReading.pm10);
-
-      AirQualitySummary summary;
-      const bool hasNewSummary = stats.getSummary(summary);
-
-      display.renderNow(latestReading.pm1, latestReading.pm25, latestReading.pm10,
-                        currentTick / 1000, wireless.clockTime().c_str(),
-                        wireless.connected(), ble.connected(),
-                        summary, hasNewSummary, redrawGraph);
     }
 
     vTaskDelay(pdMS_TO_TICKS(200));
