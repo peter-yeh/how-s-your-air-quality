@@ -3,10 +3,10 @@
 
 #include "Sensor.h"
 #include <cmath>
-#define LOG_CLASS "SensorController"
+#define LOG_CLASS "BMVSensor"
 #include "../utilities/Logger.h"
 
-SensorController::~SensorController()
+BMVSensor::~BMVSensor()
 {
     if (bmv)
     {
@@ -15,7 +15,7 @@ SensorController::~SensorController()
     }
 }
 
-void SensorController::scanI2C()
+void BMVSensor::scanI2C()
 {
     APP_LOG("+======================================================+");
     APP_LOG("|          BOARD I2C SCANNER (IO32=SDA, IO25=SCL)      |");
@@ -70,7 +70,7 @@ void SensorController::scanI2C()
     APP_LOG("+======================================================+");
 }
 
-bool SensorController::begin()
+bool BMVSensor::begin()
 {
     constexpr uint8_t PIN_SDA = 32;
     constexpr uint8_t PIN_SCL = 25;
@@ -139,7 +139,7 @@ bool SensorController::begin()
     return true;
 }
 
-LatestReading SensorController::read()
+LatestReading BMVSensor::read()
 {
     float pm1;
     float pm25;

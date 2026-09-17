@@ -11,10 +11,10 @@ struct LatestReading
     float pm10;
 };
 
-class SensorController
+class BMVSensor
 {
 public:
-    ~SensorController();
+    ~BMVSensor();
     bool begin();
     LatestReading read();
     void scanI2C();

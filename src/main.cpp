@@ -16,7 +16,7 @@
 DisplayController display;
 StorageController storage;
 SettingsController settings;
-SensorController sensor;
+BMVSensor sensor;
 WirelessController wireless;
 BleServer ble;
 
