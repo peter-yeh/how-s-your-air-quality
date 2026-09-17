@@ -1,7 +1,7 @@
 // Sensor: Bosch BMV080 particulate matter sensor
 // Interface: I2C through the DFRobot BMV080 driver
 
-#include "Sensor.h"
+#include "BMVSensor.h"
 #include <cmath>
 #define LOG_CLASS "BMVSensor"
 #include "../utilities/Logger.h"

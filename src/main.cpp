@@ -5,7 +5,7 @@
 #include "display/Display.h"
 #include "storage/Storage.h"
 #include "storage/Settings.h"
-#include "sensor/Sensor.h"
+#include "sensor/BMVSensor.h"
 #include "wireless/Wireless.h"
 #include "wireless/BleServer.h"
 #define LOG_CLASS "Application"
@@ -48,50 +48,50 @@ void airQualityTask(void *pvParameters)
       lastSecondTick = currentTick;
 
       latestReading = sensor.read();
-      APP_LOG("Latest sensor value: PM1=%.2f, PM2.5=%.2f, PM10=%.2f", latestReading.pm1, latestReading.pm25, latestReading.pm10);
+      // APP_LOG("Latest sensor value: PM1=%.2f, PM2.5=%.2f, PM10=%.2f", latestReading.pm1, latestReading.pm25, latestReading.pm10);
 
-      stats.addSample(latestReading.pm1, latestReading.pm25, latestReading.pm10);
-      minuteStats.addSample(latestReading.pm1, latestReading.pm25, latestReading.pm10);
+      // stats.addSample(latestReading.pm1, latestReading.pm25, latestReading.pm10);
+      // minuteStats.addSample(latestReading.pm1, latestReading.pm25, latestReading.pm10);
 
-      const bool redrawGraph = display.addGraphSample(latestReading.pm1, latestReading.pm25, latestReading.pm10);
+      // const bool redrawGraph = display.addGraphSample(latestReading.pm1, latestReading.pm25, latestReading.pm10);
 
-      AirQualitySummary summary;
-      const bool hasNewSummary = stats.getSummary(summary);
+      // AirQualitySummary summary;
+      // const bool hasNewSummary = stats.getSummary(summary);
 
-      display.renderNow(latestReading.pm1, latestReading.pm25, latestReading.pm10,
-                        currentTick / 1000, wireless.clockTime().c_str(),
-                        wireless.connected(), ble.connected(),
-                        summary, hasNewSummary, redrawGraph);
+      // display.renderNow(latestReading.pm1, latestReading.pm25, latestReading.pm10,
+      //                   currentTick / 1000, wireless.clockTime().c_str(),
+      //                   wireless.connected(), ble.connected(),
+      //                   summary, hasNewSummary, redrawGraph);
     }
 
-    if (currentTick - lastMinuteTick >= 60000) // minute task
-    {
-      lastMinuteTick = currentTick;
+    // if (currentTick - lastMinuteTick >= 60000) // minute task
+    // {
+    //   lastMinuteTick = currentTick;
 
-      AirQualitySummary summary;
+    //   AirQualitySummary summary;
 
-      if (minuteStats.getSummary(summary))
-      {
-        const String readingTime = wireless.currentTime();
-        if (readingTime != "time unavailable")
-        {
-          Reading reading;
-          reading.time = readingTime;
-          reading.pm1 = summary.averagePm1;
-          reading.pm25 = summary.averagePm25;
-          reading.pm10 = summary.averagePm10;
-          storage.saveReading(reading);
-        }
+    //   if (minuteStats.getSummary(summary))
+    //   {
+    //     const String readingTime = wireless.currentTime();
+    //     if (readingTime != "time unavailable")
+    //     {
+    //       Reading reading;
+    //       reading.time = readingTime;
+    //       reading.pm1 = summary.averagePm1;
+    //       reading.pm25 = summary.averagePm25;
+    //       reading.pm10 = summary.averagePm10;
+    //       storage.saveReading(reading);
+    //     }
 
-        minuteStats.clear();
-      }
+    //     minuteStats.clear();
+    //   }
 
-      // Burn-in shift for the display to prevent screen burn-in
-      display.shiftScreen(burnInShiftX[shiftIndex], burnInShiftY[shiftIndex]);
-      shiftIndex = (shiftIndex + 1) % 4;
+    //   // Burn-in shift for the display to prevent screen burn-in
+    //   display.shiftScreen(burnInShiftX[shiftIndex], burnInShiftY[shiftIndex]);
+    //   shiftIndex = (shiftIndex + 1) % 4;
 
-      APP_LOG("Minute summary: %s", summary.toString().c_str());
-    }
+    //   APP_LOG("Minute summary: %s", summary.toString().c_str());
+    // }
 
     vTaskDelay(pdMS_TO_TICKS(200));
   }
@@ -101,27 +101,27 @@ void setup()
 {
 
   Serial.begin(115200);
-  display.begin();
+  // display.begin();
 
-  wireless.begin(WIFI_SSID, WIFI_PASSWORD, 8 * 60 * 60);
+  // wireless.begin(WIFI_SSID, WIFI_PASSWORD, 8 * 60 * 60);
 
-  const bool storageReady = storage.begin();
-  SerialLogger.enableStorage(storageReady);
-  storage.testReadWrite();
+  // const bool storageReady = storage.begin();
+  // SerialLogger.enableStorage(storageReady);
+  // storage.testReadWrite();
 
-  // Read brightness from storage and set it
-  uint8_t brightness = settings.getBrightness();
-  display.setBrightness(brightness);
-  display.setGraphMode(settings.getGraphMode());
+  // // Read brightness from storage and set it
+  // uint8_t brightness = settings.getBrightness();
+  // display.setBrightness(brightness);
+  // display.setGraphMode(settings.getGraphMode());
 
-  ble.begin(&storage, &settings, &display);
+  // ble.begin(&storage, &settings, &display);
 
-  while (!sensor.begin())
-  {
-    APP_LOG("Retrying sensor initialization in 2s...");
-    delay(2000);
-  }
-  APP_LOG("BMV080 connected");
+  // while (!sensor.begin())
+  // {
+  //   APP_LOG("Retrying sensor initialization in 2s...");
+  //   delay(2000);
+  // }
+  // APP_LOG("BMV080 connected");
 
   // Launch sensor & display in a dedicated FreeRTOS task with 32KB stack
   xTaskCreatePinnedToCore(
