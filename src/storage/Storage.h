@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include <FS.h>
 #include <SPI.h>
+#include <time.h>
 #include <freertos/semphr.h>
 
 struct Reading
@@ -24,6 +25,7 @@ class StorageController
 public:
     StorageController();
     bool begin();
+    void createNextDayFile();
     bool testReadWrite();
     bool saveToCsv(const String &data);
     bool saveLog(const String &message);
@@ -35,9 +37,11 @@ public:
     bool streamRecentLines(const String &path, size_t maxLines, void (*onChunk)(const String &));
 
 private:
+    void createDailyFiles(const struct tm &date);
     void printDirectory(fs::FS &filesystem, const char *path);
 
     SPIClass sdSpi;
     bool initialized = false;
+    bool isNextDayFileCreated = false;
     SemaphoreHandle_t storageMutex = nullptr;
 };

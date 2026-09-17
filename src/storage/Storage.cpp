@@ -69,6 +69,38 @@ StorageController::StorageController() : sdSpi(HSPI)
 {
 }
 
+void StorageController::createDailyFiles(const struct tm &date)
+{
+    char monthFolder[16];
+    char sensorFilename[32];
+    char logFilename[32];
+    snprintf(monthFolder, sizeof(monthFolder), "/%02d %04d",
+             date.tm_mon + 1, date.tm_year + 1900);
+    snprintf(sensorFilename, sizeof(sensorFilename), "%s/%02d%02d%04d.csv",
+             monthFolder, date.tm_mday, date.tm_mon + 1,
+             date.tm_year + 1900);
+    snprintf(logFilename, sizeof(logFilename), "%s/%02d%02d%04d.log",
+             monthFolder, date.tm_mday, date.tm_mon + 1,
+             date.tm_year + 1900);
+
+    if (!SD.exists(monthFolder) && !SD.mkdir(monthFolder))
+    {
+        return;
+    }
+
+    if (!SD.exists(sensorFilename))
+    {
+        File sensorFile = SD.open(sensorFilename, FILE_APPEND);
+        sensorFile.close();
+    }
+
+    if (!SD.exists(logFilename))
+    {
+        File logFile = SD.open(logFilename, FILE_APPEND);
+        logFile.close();
+    }
+}
+
 void StorageController::printDirectory(fs::FS &filesystem, const char *path)
 {
     File directory = filesystem.open(path);
@@ -123,10 +155,48 @@ bool StorageController::begin()
 
     initialized = true;
 
+    time_t now = time(nullptr);
+    struct tm currentTime;
+    localtime_r(&now, &currentTime);
+    createDailyFiles(currentTime);
+
+    isNextDayFileCreated = false;
+
     APP_LOG("SD card initialized.");
     APP_LOG("SD card size: %u MB", static_cast<unsigned>(SD.cardSize() / (1024 * 1024)));
     printDirectory(SD, "/");
     return true;
+}
+
+void StorageController::createNextDayFile()
+{
+    time_t now = time(nullptr);
+    struct tm currentTime;
+    localtime_r(&now, &currentTime);
+
+    if (currentTime.tm_hour != 23 || currentTime.tm_min != 59)
+    {
+        isNextDayFileCreated = false;
+        return;
+    }
+
+    if (isNextDayFileCreated)
+    {
+        return;
+    }
+
+    time_t tomorrow = now + 24 * 60 * 60;
+    struct tm nextDay;
+    localtime_r(&tomorrow, &nextDay);
+
+    StorageLock lock(storageMutex);
+    if (!lock.acquired())
+    {
+        return;
+    }
+
+    createDailyFiles(nextDay);
+    isNextDayFileCreated = true;
 }
 
 bool StorageController::saveToCsv(const String &data)

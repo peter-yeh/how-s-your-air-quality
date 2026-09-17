@@ -227,7 +227,7 @@ void LoggingSerial::appendPendingLine()
         queueActiveBatch();
     }
 
-    if (activeBatch == nullptr)
+    if (activeBatch == nullptr || activeBatch->length + requiredLength > LOG_BATCH_CAPACITY)
     {
         pendingLineLength = 0;
         return;

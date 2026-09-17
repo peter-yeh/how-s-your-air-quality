@@ -23,7 +23,7 @@ private:
     static constexpr size_t LOG_BATCH_CAPACITY = 4096;
     static constexpr size_t LOG_BATCH_COUNT = 3;
     static constexpr size_t LOG_BATCH_FLUSH_SIZE = 3072;
-    static constexpr uint32_t LOG_BATCH_FLUSH_INTERVAL_MS = 100;
+    static constexpr uint32_t LOG_BATCH_FLUSH_INTERVAL_MS = 5000;
 
     struct LogBatch
     {

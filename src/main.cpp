@@ -90,6 +90,8 @@ void airQualityTask(void *pvParameters)
       display.shiftScreen(burnInShiftX[shiftIndex], burnInShiftY[shiftIndex]);
       shiftIndex = (shiftIndex + 1) % 4;
 
+      storage.createNextDayFile();
+
       APP_LOG("Minute summary: %s", summary.toString().c_str());
     }
 
