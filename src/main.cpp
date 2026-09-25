@@ -2,6 +2,7 @@
 // Physical board noted in this project: Sunton 3.2-inch ESP32 LCD board
 
 #include <Arduino.h>
+#include "config/BoardConfig.h"
 #include "display/Display.h"
 #include "storage/Storage.h"
 #include "storage/Settings.h"
@@ -10,8 +11,11 @@
 #include "wireless/BleServer.h"
 #define LOG_CLASS "Application"
 #include "utilities/Logger.h"
+#include <esp_task_wdt.h> // Watchdog timer
 
 #include "utilities/secrets.h"
+
+using namespace TimingConfig;
 
 DisplayController display;
 StorageController storage;
@@ -20,11 +24,28 @@ BMVSensor sensor;
 WirelessController wireless;
 BleServer ble;
 
+// Background WiFi reconnection task
+void wifiConnectivityTask(void *pvParameters)
+{
+  while (true)
+  {
+    vTaskDelay(pdMS_TO_TICKS(WirelessConfig::WIFI_RECONNECT_INTERVAL_MS));
+
+    if (!wireless.connected())
+    {
+      APP_LOG("WiFi disconnected, attempting reconnection...");
+      wireless.begin(WIFI_SSID, WIFI_PASSWORD, 8 * 60 * 60);
+    }
+
+    // Feed watchdog for this task
+    esp_task_wdt_reset();
+  }
+}
+
 void airQualityTask(void *pvParameters)
 {
   constexpr int16_t burnInShiftX[] = {0, 2, 0, -2};
   constexpr int16_t burnInShiftY[] = {2, 0, -2, 0};
-  constexpr uint32_t DISPLAY_UPDATE_INTERVAL_MS = 1000;
 
   AirQualityStats stats;
   AirQualityStats minuteStats;
@@ -43,15 +64,21 @@ void airQualityTask(void *pvParameters)
   {
     currentTick = millis();
 
-    if (currentTick - lastSecondTick >= 1000) // second task
+    if (currentTick - lastSecondTick >= DISPLAY_UPDATE_INTERVAL_MS) // second task
     {
       lastSecondTick = currentTick;
 
       latestReading = sensor.read();
-      APP_LOG("Latest sensor value: PM1=%.2f, PM2.5=%.2f, PM10=%.2f", latestReading.pm1, latestReading.pm25, latestReading.pm10);
+      APP_LOG("Latest sensor value: PM1=%.2f, PM2.5=%.2f, PM10=%.2f (valid=%s)",
+              latestReading.pm1, latestReading.pm25, latestReading.pm10,
+              latestReading.valid ? "true" : "false");
 
-      stats.addSample(latestReading.pm1, latestReading.pm25, latestReading.pm10);
-      minuteStats.addSample(latestReading.pm1, latestReading.pm25, latestReading.pm10);
+      // Only add valid samples to statistics
+      if (latestReading.valid)
+      {
+        stats.addSample(latestReading.pm1, latestReading.pm25, latestReading.pm10);
+        minuteStats.addSample(latestReading.pm1, latestReading.pm25, latestReading.pm10);
+      }
 
       const bool redrawGraph = display.addGraphSample(latestReading.pm1, latestReading.pm25, latestReading.pm10);
 
@@ -62,15 +89,18 @@ void airQualityTask(void *pvParameters)
                         currentTick / 1000, wireless.clockTime().c_str(),
                         wireless.connected(), ble.connected(),
                         summary, hasNewSummary, redrawGraph);
+
+      // Feed watchdog
+      esp_task_wdt_reset();
     }
 
-    if (currentTick - lastMinuteTick >= 60000) // minute task
+    if (currentTick - lastMinuteTick >= MINUTE_AGGREGATION_INTERVAL_MS) // minute task
     {
       lastMinuteTick = currentTick;
 
       AirQualitySummary summary;
 
-      if (minuteStats.getSummary(summary))
+      if (minuteStats.getSummary(summary) && minuteStats.getCount() > 0)
       {
         const String readingTime = wireless.currentTime();
         if (readingTime != "time unavailable")
@@ -81,9 +111,18 @@ void airQualityTask(void *pvParameters)
           reading.pm25 = summary.averagePm25;
           reading.pm10 = summary.averagePm10;
           storage.saveReading(reading);
+          APP_LOG("Minute summary saved: %s", summary.toString().c_str());
+        }
+        else
+        {
+          APP_LOG("Skipping minute save: time unavailable (WiFi disconnected?)");
         }
 
         minuteStats.clear();
+      }
+      else
+      {
+        APP_LOG("Minute summary skipped: no valid samples collected");
       }
 
       // Burn-in shift for the display to prevent screen burn-in
@@ -91,8 +130,6 @@ void airQualityTask(void *pvParameters)
       shiftIndex = (shiftIndex + 1) % 4;
 
       storage.createNextDayFile();
-
-      APP_LOG("Minute summary: %s", summary.toString().c_str());
     }
 
     vTaskDelay(pdMS_TO_TICKS(200));
@@ -101,15 +138,16 @@ void airQualityTask(void *pvParameters)
 
 void setup()
 {
-
   Serial.begin(115200);
+
+  // Initialize watchdog timer (30 second timeout)
+  esp_task_wdt_init(30, true);
+
   display.begin();
 
-  wireless.begin(WIFI_SSID, WIFI_PASSWORD, 8 * 60 * 60);
-
+  // Initialize storage first
   const bool storageReady = storage.begin();
   SerialLogger.enableStorage(storageReady);
-  storage.testReadWrite();
 
   // Read brightness from storage and set it
   uint8_t brightness = settings.getBrightness();
@@ -118,25 +156,59 @@ void setup()
 
   ble.begin(&storage, &settings, &display);
 
-  while (!sensor.begin())
+  // Start WiFi connectivity in background (non-blocking)
+  APP_LOG("Starting WiFi connectivity task...");
+  xTaskCreatePinnedToCore(
+      wifiConnectivityTask,
+      "WiFiConnectivity",
+      4096,
+      NULL,
+      0, // Lower priority
+      NULL,
+      0); // Core 0
+
+  // Initialize sensor with max retries
+  uint8_t sensorRetries = 0;
+  while (!sensor.begin() && sensorRetries < SensorConfig::MAX_INIT_RETRIES)
   {
-    APP_LOG("Retrying sensor initialization in 2s...");
-    delay(2000);
+    sensorRetries++;
+    APP_LOG("Sensor initialization attempt %u/%u failed, retrying in %lums...",
+            sensorRetries, SensorConfig::MAX_INIT_RETRIES, SensorConfig::RETRY_DELAY_MS);
+    delay(SensorConfig::RETRY_DELAY_MS);
   }
-  APP_LOG("BMV080 connected");
+
+  if (sensorRetries >= SensorConfig::MAX_INIT_RETRIES)
+  {
+    APP_LOG("CRITICAL: BMV080 sensor failed to initialize after %u attempts. Starting in degraded mode.",
+            SensorConfig::MAX_INIT_RETRIES);
+  }
+  else
+  {
+    APP_LOG("BMV080 connected after %u attempt(s)", sensorRetries);
+  }
+
+  // Subscribe this task to watchdog
+  esp_task_wdt_add(NULL);
 
   // Launch sensor & display in a dedicated FreeRTOS task with 32KB stack
+  TaskHandle_t airQualityTaskHandle = NULL;
   xTaskCreatePinnedToCore(
       airQualityTask,
       "AirQualityTask",
       32768,
       NULL,
       1,
-      NULL,
+      &airQualityTaskHandle,
       1);
+
+  if (airQualityTaskHandle != NULL)
+  {
+    esp_task_wdt_add(airQualityTaskHandle);
+  }
 }
 
 void loop() // useless loop just to follow the framework
 {
+  esp_task_wdt_reset(); // Feed watchdog from main loop
   vTaskDelay(pdMS_TO_TICKS(1000));
 }

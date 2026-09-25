@@ -2,14 +2,13 @@
 
 #include <WiFi.h>
 #include <time.h>
+#include <cmath>
 #define LOG_CLASS "WirelessController"
 #include "../utilities/Logger.h"
+#include "../config/BoardConfig.h"
 
-namespace
-{
-    constexpr uint32_t WIFI_TIMEOUT_MS = 20000;
-    constexpr uint32_t TIME_SYNC_TIMEOUT_MS = 10000;
-}
+using namespace WirelessConfig;
+using namespace TimingConfig;
 
 bool WirelessController::begin(const char *ssid, const char *password, long gmtOffsetSeconds)
 {
@@ -61,8 +60,23 @@ String WirelessController::currentTime() const
         return "time unavailable";
     }
 
-    char formattedTime[24];
-    strftime(formattedTime, sizeof(formattedTime), "%Y-%m-%d %H:%M:%S", &timeInfo);
+    // Validate year is reasonable (should be >= 2020)
+    if (timeInfo.tm_year + 1900 < TIME_VALIDATION_MIN_YEAR)
+    {
+        return "time unavailable";
+    }
+
+    char formattedTime[25];
+    int written = snprintf(formattedTime, sizeof(formattedTime), "%04d-%02d-%02d %02d:%02d:%02d",
+                           timeInfo.tm_year + 1900, timeInfo.tm_mon + 1, timeInfo.tm_mday,
+                           timeInfo.tm_hour, timeInfo.tm_min, timeInfo.tm_sec);
+
+    if (written < 0 || written >= (int)sizeof(formattedTime))
+    {
+        APP_LOG("Time format error, buffer overflow prevented");
+        return "time unavailable";
+    }
+
     return String(formattedTime);
 }
 
@@ -74,8 +88,22 @@ String WirelessController::clockTime() const
         return "--:--:--";
     }
 
-    char formattedTime[9];
-    strftime(formattedTime, sizeof(formattedTime), "%H:%M:%S", &timeInfo);
+    // Validate year is reasonable
+    if (timeInfo.tm_year + 1900 < TIME_VALIDATION_MIN_YEAR)
+    {
+        return "--:--:--";
+    }
+
+    char formattedTime[10];
+    int written = snprintf(formattedTime, sizeof(formattedTime), "%02d:%02d:%02d",
+                           timeInfo.tm_hour, timeInfo.tm_min, timeInfo.tm_sec);
+
+    if (written < 0 || written >= (int)sizeof(formattedTime))
+    {
+        APP_LOG("Clock format error, buffer overflow prevented");
+        return "--:--:--";
+    }
+
     return String(formattedTime);
 }
 

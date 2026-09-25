@@ -7,62 +7,57 @@
 #include <time.h>
 #define LOG_CLASS "StorageController"
 #include "../utilities/Logger.h"
+#include "../config/BoardConfig.h"
 
-namespace
+using namespace StorageConfig;
+
+bool isCsvFile(const String &name)
 {
-    constexpr uint8_t SD_CS = 5;
-    constexpr uint8_t SD_SCK = 18;
-    constexpr uint8_t SD_MOSI = 23;
-    constexpr uint8_t SD_MISO = 19;
-    constexpr uint32_t SD_FREQUENCY = 20000000;
+    return name.endsWith(".csv") || name.endsWith(".CSV");
+}
 
-    bool isCsvFile(const String &name)
+String normalizePath(String dir, String filename)
+{
+    String fullPath = "";
+    if (dir.length() > 0)
     {
-        return name.endsWith(".csv") || name.endsWith(".CSV");
+        if (!dir.startsWith("/"))
+            dir = "/" + dir;
+        if (dir.endsWith("/"))
+            dir = dir.substring(0, dir.length() - 1);
+        fullPath += dir;
+    }
+    if (!filename.startsWith("/"))
+        filename = "/" + filename;
+    fullPath += filename;
+    return fullPath;
+}
+
+class StorageLock
+{
+public:
+    explicit StorageLock(SemaphoreHandle_t mutex) : mutex(mutex)
+    {
+        locked = mutex != nullptr && xSemaphoreTake(mutex, portMAX_DELAY) == pdPASS;
     }
 
-    String normalizePath(String dir, String filename)
+    ~StorageLock()
     {
-        String fullPath = "";
-        if (dir.length() > 0)
+        if (locked)
         {
-            if (!dir.startsWith("/"))
-                dir = "/" + dir;
-            if (dir.endsWith("/"))
-                dir = dir.substring(0, dir.length() - 1);
-            fullPath += dir;
+            xSemaphoreGive(mutex);
         }
-        if (!filename.startsWith("/"))
-            filename = "/" + filename;
-        fullPath += filename;
-        return fullPath;
     }
 
-    class StorageLock
+    bool acquired() const
     {
-    public:
-        explicit StorageLock(SemaphoreHandle_t mutex) : mutex(mutex)
-        {
-            locked = mutex != nullptr && xSemaphoreTake(mutex, portMAX_DELAY) == pdPASS;
-        }
+        return locked;
+    }
 
-        ~StorageLock()
-        {
-            if (locked)
-            {
-                xSemaphoreGive(mutex);
-            }
-        }
-
-        bool acquired() const
-        {
-            return locked;
-        }
-
-    private:
-        SemaphoreHandle_t mutex;
-        bool locked = false;
-    };
+private:
+    SemaphoreHandle_t mutex;
+    bool locked = false;
+};
 }
 
 StorageController::StorageController() : sdSpi(HSPI)
@@ -103,6 +98,11 @@ void StorageController::createDailyFiles(const struct tm &date)
 
 void StorageController::printDirectory(fs::FS &filesystem, const char *path)
 {
+    if (!PRINT_DIRECTORY_ON_BOOT)
+    {
+        return; // Skip directory listing unless debugging enabled
+    }
+
     File directory = filesystem.open(path);
     if (!directory || !directory.isDirectory())
     {
@@ -160,7 +160,7 @@ bool StorageController::begin()
     localtime_r(&now, &currentTime);
     createDailyFiles(currentTime);
 
-    isNextDayFileCreated = false;
+    lastDayOfMonth = currentTime.tm_mday; // Track current day
 
     APP_LOG("SD card initialized.");
     APP_LOG("SD card size: %u MB", static_cast<unsigned>(SD.cardSize() / (1024 * 1024)));
@@ -174,29 +174,25 @@ void StorageController::createNextDayFile()
     struct tm currentTime;
     localtime_r(&now, &currentTime);
 
-    if (currentTime.tm_hour != 23 || currentTime.tm_min != 59)
+    // Check if day has changed (not just specific time)
+    if (currentTime.tm_mday == lastDayOfMonth)
     {
-        isNextDayFileCreated = false;
-        return;
+        return; // Still the same day
     }
 
-    if (isNextDayFileCreated)
-    {
-        return;
-    }
-
-    time_t tomorrow = now + 24 * 60 * 60;
-    struct tm nextDay;
-    localtime_r(&tomorrow, &nextDay);
+    // Day has changed - create files for new day
+    lastDayOfMonth = currentTime.tm_mday;
 
     StorageLock lock(storageMutex);
     if (!lock.acquired())
     {
+        APP_LOG("Failed to acquire lock for day file creation");
         return;
     }
 
-    createDailyFiles(nextDay);
-    isNextDayFileCreated = true;
+    createDailyFiles(currentTime);
+    APP_LOG("Daily files created for new day (%04d-%02d-%02d)",
+            currentTime.tm_year + 1900, currentTime.tm_mon + 1, currentTime.tm_mday);
 }
 
 bool StorageController::saveToCsv(const String &data)
@@ -239,20 +235,23 @@ bool StorageController::saveToCsv(const String &data)
     File csvFile = SD.open(filename, FILE_APPEND);
     if (!csvFile)
     {
-        APP_LOG("Cannot open CSV file: %s", filename);
+        APP_LOG("Cannot open CSV file: %s (file open failed)", filename);
         return false;
     }
 
-    csvFile.println(data);
-    bool written = csvFile.getWriteError() == 0;
+    size_t written = csvFile.println(data);
+    bool success = (csvFile.getWriteError() == 0) && (written > 0);
     csvFile.close();
 
-    if (!written)
+    if (!success)
     {
-        APP_LOG("Cannot write CSV row: %s", filename);
+        APP_LOG("Cannot write CSV row: %s (write error)", filename);
     }
-    APP_LOG("CSV row written: %s", data.c_str());
-    return written;
+    else
+    {
+        APP_LOG("CSV row written: %s", data.c_str());
+    }
+    return success;
 }
 
 bool StorageController::saveLog(const String &message)
@@ -284,7 +283,7 @@ bool StorageController::saveLogBatch(const char *data, size_t length)
     localtime_r(&now, &currentTime);
     if (currentTime.tm_year < 120)
     {
-        APP_LOG("Cannot save log: system clock is not set.");
+        APP_LOG("Cannot save log: system clock is not set properly.");
         return false;
     }
 
@@ -305,17 +304,17 @@ bool StorageController::saveLogBatch(const char *data, size_t length)
     File logFile = SD.open(filename, FILE_APPEND);
     if (!logFile)
     {
-        APP_LOG("Cannot open log file: %s", filename);
+        APP_LOG("Cannot open log file: %s (file open failed)", filename);
         return false;
     }
 
     const size_t bytesWritten = logFile.write(reinterpret_cast<const uint8_t *>(data), length);
-    const bool written = bytesWritten == length && logFile.getWriteError() == 0;
+    const bool written = (bytesWritten == length) && (logFile.getWriteError() == 0);
     logFile.close();
 
     if (!written)
     {
-        APP_LOG("Cannot write log file: %s", filename);
+        APP_LOG("Cannot write log file: %s (wrote %u/%u bytes)", filename, (unsigned)bytesWritten, (unsigned)length);
     }
     return written;
 }
@@ -542,52 +541,4 @@ bool StorageController::streamRecentLines(const String &path, size_t maxLines, v
     APP_LOG("streamRecentLines: done, %u chunk(s) sent", static_cast<unsigned>(chunkIndex));
     file.close();
     return true;
-}
-
-bool StorageController::testReadWrite()
-{
-    StorageLock lock(storageMutex);
-    if (!lock.acquired())
-    {
-        return false;
-    }
-
-    constexpr char TEST_FILE[] = "/sd_test.txt";
-    const String expected = "ESP32 SD read/write test";
-
-    if (!initialized)
-    {
-        APP_LOG("SD read/write test skipped: card is not initialized.");
-        return false;
-    }
-
-    File file = SD.open(TEST_FILE, FILE_WRITE);
-    if (!file)
-    {
-        APP_LOG("SD write test failed: cannot open test file.");
-        return false;
-    }
-    file.println(expected);
-    bool writeSucceeded = file.getWriteError() == 0;
-    file.close();
-
-    if (!writeSucceeded)
-    {
-        APP_LOG("SD write test failed.");
-        return false;
-    }
-
-    file = SD.open(TEST_FILE, FILE_READ);
-    if (!file)
-    {
-        APP_LOG("SD read test failed: cannot open test file.");
-        return false;
-    }
-    String actual = file.readStringUntil('\n');
-    file.close();
-    actual.trim();
-
-    bool passed = actual == expected;
-    APP_LOG("%s", passed ? "SD read/write test passed." : "SD read/write test failed: data mismatch.");
-    return passed;
 }

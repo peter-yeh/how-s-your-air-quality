@@ -1,17 +1,17 @@
 #include "Settings.h"
 
 #include <Preferences.h>
+#include "../config/BoardConfig.h"
 #define LOG_CLASS "SettingsController"
 #include "../utilities/Logger.h"
+
+using namespace SettingsConfig;
 
 namespace
 {
     constexpr char PREFERENCES_NAMESPACE[] = "air_sensor";
     constexpr char BRIGHTNESS_KEY[] = "brightness";
     constexpr char GRAPH_MODE_KEY[] = "graphMode";
-    constexpr uint8_t DEFAULT_BRIGHTNESS = 128;
-    constexpr uint8_t DEFAULT_GRAPH_MODE = 0;
-    constexpr uint8_t MAX_GRAPH_MODE = 2;
 }
 
 uint8_t SettingsController::getBrightness() const
@@ -52,27 +52,29 @@ uint8_t SettingsController::getGraphMode() const
     if (!preferences.begin(PREFERENCES_NAMESPACE, true))
     {
         APP_LOG("Unable to open preferences while getting graph mode.");
-        return DEFAULT_GRAPH_MODE;
+        return static_cast<uint8_t>(DEFAULT_GRAPH_MODE);
     }
 
-    const uint8_t graphMode = preferences.getUChar(GRAPH_MODE_KEY, DEFAULT_GRAPH_MODE);
+    const uint8_t storedMode = preferences.getUChar(GRAPH_MODE_KEY, static_cast<uint8_t>(DEFAULT_GRAPH_MODE));
     preferences.end();
 
-    if (graphMode > MAX_GRAPH_MODE)
+    // Validate stored value is within enum range
+    if (storedMode > static_cast<uint8_t>(GraphMode::MAX))
     {
-        APP_LOG("Invalid stored graph mode %u", graphMode);
-        return DEFAULT_GRAPH_MODE;
+        APP_LOG("Invalid stored graph mode %u, resetting to default", storedMode);
+        return static_cast<uint8_t>(DEFAULT_GRAPH_MODE);
     }
 
-    APP_LOG("Graph mode read: %u", graphMode);
-    return graphMode;
+    APP_LOG("Graph mode read: %u", storedMode);
+    return storedMode;
 }
 
 bool SettingsController::setGraphMode(uint8_t graphMode)
 {
-    if (graphMode > MAX_GRAPH_MODE)
+    // Validate input
+    if (graphMode > static_cast<uint8_t>(GraphMode::MAX))
     {
-        APP_LOG("Invalid graph mode %u", graphMode);
+        APP_LOG("Invalid graph mode %u (max is %u)", graphMode, static_cast<uint8_t>(GraphMode::MAX));
         return false;
     }
 

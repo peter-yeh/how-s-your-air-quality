@@ -10,13 +10,25 @@ namespace
     {
         result += label;
         result += "{low=";
-        result += String(low, 2);
+        if (std::isnan(low))
+            result += "--";
+        else
+            result += String(low, 2);
         result += ", median=";
-        result += String(median, 2);
+        if (std::isnan(median))
+            result += "--";
+        else
+            result += String(median, 2);
         result += ", high=";
-        result += String(high, 2);
+        if (std::isnan(high))
+            result += "--";
+        else
+            result += String(high, 2);
         result += ", average=";
-        result += String(average, 2);
+        if (std::isnan(average))
+            result += "--";
+        else
+            result += String(average, 2);
         result += "}";
     }
 

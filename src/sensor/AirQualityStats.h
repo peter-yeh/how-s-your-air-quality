@@ -3,21 +3,23 @@
 #include <Arduino.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <cmath>
 
 struct AirQualitySummary
 {
-    float lowPm1 = 0;
-    float highPm1 = 0;
-    float averagePm1 = 0;
-    float medianPm1 = 0;
-    float lowPm25 = 0;
-    float highPm25 = 0;
-    float averagePm25 = 0;
-    float medianPm25 = 0;
-    float lowPm10 = 0;
-    float highPm10 = 0;
-    float averagePm10 = 0;
-    float medianPm10 = 0;
+    // Initialize with NaN to distinguish "no data" from "clean air (0.0)"
+    float lowPm1 = std::numeric_limits<float>::quiet_NaN();
+    float highPm1 = std::numeric_limits<float>::quiet_NaN();
+    float averagePm1 = std::numeric_limits<float>::quiet_NaN();
+    float medianPm1 = std::numeric_limits<float>::quiet_NaN();
+    float lowPm25 = std::numeric_limits<float>::quiet_NaN();
+    float highPm25 = std::numeric_limits<float>::quiet_NaN();
+    float averagePm25 = std::numeric_limits<float>::quiet_NaN();
+    float medianPm25 = std::numeric_limits<float>::quiet_NaN();
+    float lowPm10 = std::numeric_limits<float>::quiet_NaN();
+    float highPm10 = std::numeric_limits<float>::quiet_NaN();
+    float averagePm10 = std::numeric_limits<float>::quiet_NaN();
+    float medianPm10 = std::numeric_limits<float>::quiet_NaN();
 
     String toString() const;
 };
@@ -31,6 +33,10 @@ public:
     size_t getCount() const;
 
 private:
+    // MedianEstimator: Implements P-squared algorithm for online median estimation.
+    // THREADING: NOT THREAD-SAFE. Designed for single-threaded use only.
+    // Must be called only from the thread that reads sensor data.
+    // Do not call add()/get()/clear() concurrently from multiple threads.
     class MedianEstimator
     {
     public:

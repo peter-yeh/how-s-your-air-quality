@@ -26,7 +26,6 @@ public:
     StorageController();
     bool begin();
     void createNextDayFile();
-    bool testReadWrite();
     bool saveToCsv(const String &data);
     bool saveLog(const String &message);
     bool saveLogBatch(const char *data, size_t length);
@@ -42,6 +41,6 @@ private:
 
     SPIClass sdSpi;
     bool initialized = false;
-    bool isNextDayFileCreated = false;
+    int lastDayOfMonth = -1; // Track day change instead of specific time
     SemaphoreHandle_t storageMutex = nullptr;
 };

@@ -6,6 +6,8 @@
 #define LOG_CLASS "BMVSensor"
 #include "../utilities/Logger.h"
 
+using namespace SensorConfig;
+
 BMVSensor::~BMVSensor()
 {
     if (bmv)
@@ -21,13 +23,9 @@ void BMVSensor::scanI2C()
     APP_LOG("|          BOARD I2C SCANNER (IO32=SDA, IO25=SCL)      |");
     APP_LOG("+======================================================+");
 
-    // Exact pins from your Sunton 3.2" ESP32 LCD board silkscreen
-    constexpr uint8_t PIN_SDA = 32;
-    constexpr uint8_t PIN_SCL = 25;
-
     Wire.end();
     delay(20);
-    Wire.begin(PIN_SDA, PIN_SCL, 100000);
+    Wire.begin(PIN_SDA, PIN_SCL, I2C_FREQUENCY);
     delay(20);
 
     const uint8_t candidateAddresses[] = {0x57, 0x56, 0x55, 0x54};
@@ -72,14 +70,11 @@ void BMVSensor::scanI2C()
 
 bool BMVSensor::begin()
 {
-    constexpr uint8_t PIN_SDA = 32;
-    constexpr uint8_t PIN_SCL = 25;
-
     scanI2C();
 
     if (detectedAddr == 0)
     {
-        detectedAddr = 0x57; // Default DFRobot address
+        detectedAddr = I2C_ADDR_DEFAULT;
     }
 
     if (bmv)
@@ -90,7 +85,7 @@ bool BMVSensor::begin()
 
     Wire.end();
     delay(10);
-    Wire.begin(PIN_SDA, PIN_SCL, 100000);
+    Wire.begin(PIN_SDA, PIN_SCL, I2C_FREQUENCY);
 
     bmv = new DFRobot_BMV080_I2C(&Wire, detectedAddr);
 
@@ -133,17 +128,33 @@ bool BMVSensor::begin()
         APP_LOG("BMV080 setBmv080Mode failed, result = %d", modeResult);
         return false;
     }
-    APP_LOG("BMV080 continuous mode started (BALANCED).");
+    APP_LOG("BMV080 continuous mode started (BALANCED). Warming up for %lums...", WARMUP_DELAY_MS);
 
     initialized = true;
+    warmupStartTime = millis();
+    warmupComplete = false;
+    lastValidReadTime = 0;
     return true;
 }
 
 LatestReading BMVSensor::read()
 {
-    float pm1;
-    float pm25;
-    float pm10;
+    uint32_t now = millis();
+
+    // Check if warmup period has completed
+    if (!warmupComplete && warmupStartTime > 0)
+    {
+        if (now - warmupStartTime >= WARMUP_DELAY_MS)
+        {
+            warmupComplete = true;
+            APP_LOG("BMV080 warmup complete");
+        }
+    }
+
+    float pm1 = currentPm1;
+    float pm25 = currentPm25;
+    float pm10 = currentPm10;
+    bool valid = false;
 
     if (bmv != nullptr &&
         bmv->getBmv080Data(&pm1, &pm25, &pm10) &&
@@ -154,7 +165,14 @@ LatestReading BMVSensor::read()
         currentPm1 = pm1;
         currentPm25 = pm25;
         currentPm10 = pm10;
+        lastValidReadTime = now;
+        valid = warmupComplete; // Only mark as valid after warmup
+    }
+    else
+    {
+        // Check if last read is stale (no update for > SENSOR_STALE_TIMEOUT_MS)
+        valid = (lastValidReadTime > 0) && (now - lastValidReadTime < SENSOR_STALE_TIMEOUT_MS);
     }
 
-    return LatestReading{currentPm1, currentPm25, currentPm10};
+    return LatestReading{currentPm1, currentPm25, currentPm10, valid, now};
 }

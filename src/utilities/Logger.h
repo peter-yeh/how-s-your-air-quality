@@ -5,6 +5,7 @@
 #include <freertos/queue.h>
 #include <freertos/semphr.h>
 #include <freertos/task.h>
+#include "../config/BoardConfig.h"
 
 class LoggingSerial : public Print
 {
@@ -19,11 +20,13 @@ public:
     void log(const char *filename, const char *className, const char *functionName, const char *format, ...);
 
 private:
-    static constexpr size_t LOG_LINE_CAPACITY = 512;
-    static constexpr size_t LOG_BATCH_CAPACITY = 4096;
-    static constexpr size_t LOG_BATCH_COUNT = 3;
-    static constexpr size_t LOG_BATCH_FLUSH_SIZE = 3072;
-    static constexpr uint32_t LOG_BATCH_FLUSH_INTERVAL_MS = 5000;
+    // Use centralized configuration from BoardConfig
+    using LoggerConfig = ::LoggerConfig;
+    static constexpr size_t LOG_LINE_CAPACITY = LoggerConfig::LOG_LINE_CAPACITY;
+    static constexpr size_t LOG_BATCH_CAPACITY = LoggerConfig::LOG_BATCH_CAPACITY;
+    static constexpr size_t LOG_BATCH_COUNT = LoggerConfig::LOG_BATCH_COUNT;
+    static constexpr size_t LOG_BATCH_FLUSH_SIZE = LoggerConfig::LOG_BATCH_FLUSH_SIZE;
+    static constexpr uint32_t LOG_BATCH_FLUSH_INTERVAL_MS = LoggerConfig::LOG_BATCH_FLUSH_INTERVAL_MS;
 
     struct LogBatch
     {

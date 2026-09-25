@@ -2,6 +2,7 @@
 
 #include <stdint.h>
 #include "../sensor/AirQualityStats.h"
+#include <freertos/semphr.h>
 
 class DisplayController
 {
@@ -16,4 +17,9 @@ public:
     void shiftScreen(int16_t x, int16_t y);
     void setBrightness(uint8_t brightness);
     void setGraphMode(int mode);
+    bool isInitialized() const { return initialized; }
+
+private:
+    bool initialized = false;
+    SemaphoreHandle_t displayMutex = nullptr; // Protect display operations
 };
