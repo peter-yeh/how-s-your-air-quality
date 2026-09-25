@@ -174,5 +174,11 @@ LatestReading BMVSensor::read()
         valid = (lastValidReadTime > 0) && (now - lastValidReadTime < SENSOR_STALE_TIMEOUT_MS);
     }
 
-    return LatestReading{currentPm1, currentPm25, currentPm10, valid, now};
+    LatestReading result;
+    result.pm1 = currentPm1;
+    result.pm25 = currentPm25;
+    result.pm10 = currentPm10;
+    result.valid = valid;
+    result.timestamp = now;
+    return result;
 }

@@ -5,6 +5,7 @@
 #include "BleServer.h"
 
 #include <NimBLEDevice.h>
+#include <SD.h>
 #include "storage/Storage.h"
 #include "storage/Settings.h"
 #include "display/Display.h"

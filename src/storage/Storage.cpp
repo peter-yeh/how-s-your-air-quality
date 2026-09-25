@@ -58,7 +58,6 @@ private:
     SemaphoreHandle_t mutex;
     bool locked = false;
 };
-}
 
 StorageController::StorageController() : sdSpi(HSPI)
 {
@@ -158,9 +157,24 @@ bool StorageController::begin()
     time_t now = time(nullptr);
     struct tm currentTime;
     localtime_r(&now, &currentTime);
-    createDailyFiles(currentTime);
-
-    lastDayOfMonth = currentTime.tm_mday; // Track current day
+    
+    // Validate system time before creating files
+    // If time has not been synced via NTP yet, skip file creation for now
+    // createNextDayFile() will be called periodically and will create files once time is valid
+    if (currentTime.tm_year + 1900 >= 2020)  // TIME_VALIDATION_MIN_YEAR check
+    {
+        createDailyFiles(currentTime);
+        lastDayOfMonth = currentTime.tm_mday; // Track current day
+        APP_LOG("Daily files created for %04d-%02d-%02d",
+                currentTime.tm_year + 1900, currentTime.tm_mon + 1, currentTime.tm_mday);
+    }
+    else
+    {
+        APP_LOG("System time not valid yet (%04d-%02d-%02d), skipping file creation.",
+                currentTime.tm_year + 1900, currentTime.tm_mon + 1, currentTime.tm_mday);
+        APP_LOG("Files will be created once NTP synchronization completes.");
+        lastDayOfMonth = -1;  // Force file creation on first valid time check
+    }
 
     APP_LOG("SD card initialized.");
     APP_LOG("SD card size: %u MB", static_cast<unsigned>(SD.cardSize() / (1024 * 1024)));
@@ -174,13 +188,19 @@ void StorageController::createNextDayFile()
     struct tm currentTime;
     localtime_r(&now, &currentTime);
 
-    // Check if day has changed (not just specific time)
-    if (currentTime.tm_mday == lastDayOfMonth)
+    // Validate system time is reasonable
+    if (currentTime.tm_year + 1900 < 2020)  // TIME_VALIDATION_MIN_YEAR check
+    {
+        return;  // Time not yet synced, skip
+    }
+
+    // Check if day has changed or files haven't been created yet (lastDayOfMonth == -1)
+    if (currentTime.tm_mday == lastDayOfMonth && lastDayOfMonth != -1)
     {
         return; // Still the same day
     }
 
-    // Day has changed - create files for new day
+    // Day has changed or initial file creation needed - create files for new day
     lastDayOfMonth = currentTime.tm_mday;
 
     StorageLock lock(storageMutex);

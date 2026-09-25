@@ -12,7 +12,7 @@
 
 using namespace DisplayConfig;
 
-Adafruit_ST7789 display(&SPI, TFT_CS, TFT_DC, -1);
+static Adafruit_ST7789 display(&SPI, TFT_CS, TFT_DC, -1);
 GraphPlotter graph;
 
 AirQualitySummary currentSummary;
@@ -224,7 +224,6 @@ void drawWifiIcon(bool connected)
     display.drawPixel(iconX + 1, iconY - 6, color);
     display.drawPixel(iconX + 2, iconY - 6, color);
     display.drawPixel(iconX + 3, iconY - 5, color);
-}
 }
 
 void DisplayController::begin()

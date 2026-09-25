@@ -80,7 +80,12 @@ function receivedData(event) {
             console.log(`[receivedData] Transfer complete: ${chunkCount} chunks in ${elapsed}s`);
 
             const payload = transfer.trim();
+            console.log('[receivedData] Raw payload length:', payload.length);
+            console.log('[receivedData] Payload preview (first 300 chars):', payload.substring(0, 300));
+
             const entries = payload.split('\n').map(s => s.trim()).filter(Boolean);
+            console.log('[receivedData] Entries after split:', entries.length);
+
             const parsedFiles = entries.map(entry => {
                 const parts = entry.split('|');
                 return {
@@ -90,6 +95,7 @@ function receivedData(event) {
             }).filter(f => f.name.toLowerCase().endsWith('.csv'));
 
             const isFileList = transferType === 'list' || (transferType !== 'file' && parsedFiles.length > 0);
+            console.log('[receivedData] isFileList:', isFileList, 'transferType:', transferType, 'parsedFiles.length:', parsedFiles.length);
 
             if (isFileList) {
                 console.log(`[receivedData] File list received:`, parsedFiles);
@@ -98,6 +104,7 @@ function receivedData(event) {
             } else {
                 // Treat as CSV file content
                 console.log('[receivedData] CSV content received, drawing graph');
+                console.log('[receivedData] CSV payload to be passed to drawGraph:', payload);
                 drawGraph(payload);
             }
 
@@ -158,9 +165,38 @@ async function openFile(name) {
 }
 
 function drawGraph(csv) {
+    console.log('[drawGraph] Raw CSV received:', csv.substring(0, 500)); // Log first 500 chars
+    console.log('[drawGraph] CSV length:', csv.length);
+
     const rows = csv.trim().split(/\r?\n/).map(row => row.split(','));
-    let points = rows.map(row => ({ time: row[0], pm1: +row[1], pm25: +row[2], pm10: +row[3] })).filter(row => Number.isFinite(row.pm10));
-    if (!points.length) { setStatus('CSV has no readable rows'); return; }
+    console.log('[drawGraph] Total rows after split:', rows.length);
+    console.log('[drawGraph] First 3 rows:', rows.slice(0, 3));
+
+    let points = [];
+    for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const time = row[0];
+        const pm1 = +row[1];
+        const pm25 = +row[2];
+        const pm10 = +row[3];
+
+        console.log(`[drawGraph] Row ${i}: time="${time}", pm1=${pm1}, pm25=${pm25}, pm10=${pm10}, isFinitePm10=${Number.isFinite(pm10)}`);
+
+        if (Number.isFinite(pm10)) {
+            points.push({ time, pm1, pm25, pm10 });
+        } else {
+            console.warn(`[drawGraph] Skipping row ${i} - pm10 is not finite (${pm10})`);
+        }
+    }
+
+    console.log('[drawGraph] Valid points after filtering:', points.length);
+    console.log('[drawGraph] First valid point:', points[0]);
+
+    if (!points.length) {
+        console.error('[drawGraph] ERROR: No valid data points found!');
+        setStatus('CSV has no readable rows');
+        return;
+    }
 
     const readingCount = points.length;
     if (points.length > 1200) {

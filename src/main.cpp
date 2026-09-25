@@ -24,24 +24,6 @@ BMVSensor sensor;
 WirelessController wireless;
 BleServer ble;
 
-// Background WiFi reconnection task
-void wifiConnectivityTask(void *pvParameters)
-{
-  while (true)
-  {
-    vTaskDelay(pdMS_TO_TICKS(WirelessConfig::WIFI_RECONNECT_INTERVAL_MS));
-
-    if (!wireless.connected())
-    {
-      APP_LOG("WiFi disconnected, attempting reconnection...");
-      wireless.begin(WIFI_SSID, WIFI_PASSWORD, 8 * 60 * 60);
-    }
-
-    // Feed watchdog for this task
-    esp_task_wdt_reset();
-  }
-}
-
 void airQualityTask(void *pvParameters)
 {
   constexpr int16_t burnInShiftX[] = {0, 2, 0, -2};
@@ -140,6 +122,10 @@ void setup()
 {
   Serial.begin(115200);
 
+  // Connect to WiFi on startup
+  APP_LOG("Connecting to WiFi...");
+  wireless.begin(WIFI_SSID, WIFI_PASSWORD, 8 * 60 * 60);
+
   // Initialize watchdog timer (30 second timeout)
   esp_task_wdt_init(30, true);
 
@@ -155,17 +141,6 @@ void setup()
   display.setGraphMode(settings.getGraphMode());
 
   ble.begin(&storage, &settings, &display);
-
-  // Start WiFi connectivity in background (non-blocking)
-  APP_LOG("Starting WiFi connectivity task...");
-  xTaskCreatePinnedToCore(
-      wifiConnectivityTask,
-      "WiFiConnectivity",
-      4096,
-      NULL,
-      0, // Lower priority
-      NULL,
-      0); // Core 0
 
   // Initialize sensor with max retries
   uint8_t sensorRetries = 0;

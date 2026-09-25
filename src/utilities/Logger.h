@@ -21,7 +21,6 @@ public:
 
 private:
     // Use centralized configuration from BoardConfig
-    using LoggerConfig = ::LoggerConfig;
     static constexpr size_t LOG_LINE_CAPACITY = LoggerConfig::LOG_LINE_CAPACITY;
     static constexpr size_t LOG_BATCH_CAPACITY = LoggerConfig::LOG_BATCH_CAPACITY;
     static constexpr size_t LOG_BATCH_COUNT = LoggerConfig::LOG_BATCH_COUNT;
