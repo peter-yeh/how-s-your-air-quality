@@ -157,11 +157,11 @@ bool StorageController::begin()
     time_t now = time(nullptr);
     struct tm currentTime;
     localtime_r(&now, &currentTime);
-    
+
     // Validate system time before creating files
     // If time has not been synced via NTP yet, skip file creation for now
     // createNextDayFile() will be called periodically and will create files once time is valid
-    if (currentTime.tm_year + 1900 >= 2020)  // TIME_VALIDATION_MIN_YEAR check
+    if (currentTime.tm_year + 1900 >= 2020) // TIME_VALIDATION_MIN_YEAR check
     {
         createDailyFiles(currentTime);
         lastDayOfMonth = currentTime.tm_mday; // Track current day
@@ -173,7 +173,7 @@ bool StorageController::begin()
         APP_LOG("System time not valid yet (%04d-%02d-%02d), skipping file creation.",
                 currentTime.tm_year + 1900, currentTime.tm_mon + 1, currentTime.tm_mday);
         APP_LOG("Files will be created once NTP synchronization completes.");
-        lastDayOfMonth = -1;  // Force file creation on first valid time check
+        lastDayOfMonth = -1; // Force file creation on first valid time check
     }
 
     APP_LOG("SD card initialized.");
@@ -189,9 +189,9 @@ void StorageController::createNextDayFile()
     localtime_r(&now, &currentTime);
 
     // Validate system time is reasonable
-    if (currentTime.tm_year + 1900 < 2020)  // TIME_VALIDATION_MIN_YEAR check
+    if (currentTime.tm_year + 1900 < 2020) // TIME_VALIDATION_MIN_YEAR check
     {
-        return;  // Time not yet synced, skip
+        return; // Time not yet synced, skip
     }
 
     // Check if day has changed or files haven't been created yet (lastDayOfMonth == -1)

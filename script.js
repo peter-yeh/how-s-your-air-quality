@@ -19,14 +19,19 @@ function formatFileSize(bytes) {
 
 function applySettings(brightness0to255, graphMode) {
     const brightnessPercent = Math.round((brightness0to255 / 255) * 100);
-    const brightnessSlider = $('brightnessSlider');
-    brightnessSlider.value = brightnessPercent;
-    brightnessSlider.disabled = false;
+    const brightnessMap = { 0: 'Low', 128: 'Med', 255: 'High' };
+    const closestBrightness = Object.keys(brightnessMap).reduce((a, b) => 
+        Math.abs(brightness0to255 - a) < Math.abs(brightness0to255 - b) ? a : b);
+    
+    ['Low', 'Med', 'High'].forEach(btn => {
+        $('brightness' + btn).disabled = false;
+        $('brightness' + btn).classList.toggle('active', btn === brightnessMap[closestBrightness]);
+    });
     $('brightnessValue').textContent = brightnessPercent + '%';
 
-    document.querySelectorAll('input[name="graphMode"]').forEach(radio => {
-        radio.disabled = false;
-        radio.checked = radio.value === String(graphMode);
+    [0, 1, 2].forEach(mode => {
+        $('graphMode' + mode).disabled = false;
+        $('graphMode' + mode).classList.toggle('active', mode === graphMode);
     });
     $('graphModeValue').textContent = graphModeLabels[graphMode];
 
@@ -502,37 +507,38 @@ $('ConnectESP32').onclick = async () => {
     }
 };
 
-// Brightness slider handler
-$('brightnessSlider').addEventListener('input', async (event) => {
-    const brightnessPercent = parseInt(event.target.value, 10);
-    $('brightnessValue').textContent = brightnessPercent + '%';
-
-    // Convert percentage (1-100) to 0-255
-    const brightness0to255 = Math.round((brightnessPercent / 100) * 255);
-
-    console.log(`[brightnessSlider] Sending SetBrightness: ${brightnessPercent}% = ${brightness0to255} (0-255)`);
-
-    if (commandCharacteristic) {
+// Brightness preset buttons
+const brightnessPresets = { Low: 0, Med: 128, High: 255 };
+Object.entries(brightnessPresets).forEach(([name, value]) => {
+    const btn = $('brightness' + name);
+    btn.addEventListener('click', async () => {
+        const percent = Math.round((value / 255) * 100);
+        $('brightnessValue').textContent = percent + '%';
+        ['Low', 'Med', 'High'].forEach(n => $('brightness' + n).classList.toggle('active', n === name));
         try {
-            await commandCharacteristic.writeValue(new TextEncoder().encode(`SetBrightness:${brightness0to255}`));
-            console.log('[brightnessSlider] SetBrightness command sent');
+            if (commandCharacteristic) {
+                await commandCharacteristic.writeValue(new TextEncoder().encode(`SetBrightness:${value}`));
+                console.log(`[brightness] ${name} (${percent}%) sent`);
+            }
         } catch (error) {
-            console.error('[brightnessSlider] Error sending brightness:', error);
+            console.error('[brightness] Error:', error);
         }
-    }
+    });
 });
 
-// Graph mode radio buttons handler
-document.querySelectorAll('input[name="graphMode"]').forEach(radio => {
-    radio.addEventListener('change', async (event) => {
-        const mode = event.target.value;
+// Graph mode preset buttons
+[0, 1, 2].forEach(mode => {
+    const btn = $('graphMode' + mode);
+    btn.addEventListener('click', async () => {
         console.log(`[graphMode] Sending SetGraphMode: ${mode}`);
+        $('graphModeValue').textContent = graphModeLabels[mode];
+        [0, 1, 2].forEach(m => $('graphMode' + m).classList.toggle('active', m === mode));
         if (commandCharacteristic) {
             try {
                 await commandCharacteristic.writeValue(new TextEncoder().encode(`SetGraphMode:${mode}`));
-                console.log('[graphMode] SetGraphMode command sent');
+                console.log(`[graphMode] SetGraphMode:${mode} sent`);
             } catch (error) {
-                console.error('[graphMode] Error sending graph mode:', error);
+                console.error('[graphMode] Error:', error);
             }
         }
     });

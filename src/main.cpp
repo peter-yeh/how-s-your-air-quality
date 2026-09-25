@@ -133,7 +133,7 @@ void setup()
 
   // Initialize storage first
   const bool storageReady = storage.begin();
-  SerialLogger.enableStorage(storageReady);
+  // SerialLogger.enableStorage(storageReady);
 
   // Read brightness from storage and set it
   uint8_t brightness = settings.getBrightness();

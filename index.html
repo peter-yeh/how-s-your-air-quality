@@ -29,19 +29,20 @@
             </div>
             <div class="control-grid">
                 <div class="control-field">
-                    <label for="brightnessSlider">Screen brightness</label>
-                    <div class="slider-container">
-                        <input type="range" id="brightnessSlider" min="1" max="100" value="1" disabled>
-                        <span id="brightnessValue" aria-live="polite">Loading...</span>
+                    <label>Screen brightness <span class="label-muted">/ <span id="brightnessValue" aria-live="polite">Loading...</span></span></label>
+                    <div class="button-group">
+                        <button id="brightnessLow" type="button" class="preset-btn" disabled>Low (0%)</button>
+                        <button id="brightnessMed" type="button" class="preset-btn" disabled>Med (50%)</button>
+                        <button id="brightnessHigh" type="button" class="preset-btn" disabled>High (100%)</button>
                     </div>
                 </div>
                 <div class="control-field">
                     <label>Graph mode <span class="label-muted">/ <span id="graphModeValue"
                                 aria-live="polite">Loading...</span></span></label>
-                    <div class="radio-group">
-                        <label><input type="radio" name="graphMode" value="0" disabled> Seconds</label>
-                        <label><input type="radio" name="graphMode" value="1" disabled> Minutes</label>
-                        <label><input type="radio" name="graphMode" value="2" disabled> Hours</label>
+                    <div class="button-group">
+                        <button id="graphMode0" type="button" class="preset-btn" disabled>Seconds</button>
+                        <button id="graphMode1" type="button" class="preset-btn" disabled>Minutes</button>
+                        <button id="graphMode2" type="button" class="preset-btn" disabled>Hours</button>
                     </div>
                 </div>
             </div>

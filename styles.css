@@ -226,6 +226,39 @@ input[type="radio"] {
     accent-color: var(--accent);
 }
 
+.button-group {
+    display: flex;
+    gap: 8px;
+}
+
+.preset-btn {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid rgba(41, 217, 173, .3);
+    border-radius: 5px;
+    color: var(--accent);
+    background: transparent;
+    font-size: .85rem;
+    font-weight: 600;
+    transition: all .2s ease;
+}
+
+.preset-btn:hover:not(:disabled) {
+    background: rgba(41, 217, 173, .1);
+    border-color: var(--accent);
+}
+
+.preset-btn.active {
+    background: rgba(41, 217, 173, .2);
+    border-color: var(--accent);
+    box-shadow: 0 0 8px rgba(41, 217, 173, .3);
+}
+
+.preset-btn:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+}
+
 .section-tag,
 .chart-unit {
     display: inline-flex;
