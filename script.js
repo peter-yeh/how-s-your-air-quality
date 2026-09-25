@@ -20,9 +20,9 @@ function formatFileSize(bytes) {
 function applySettings(brightness0to255, graphMode) {
     const brightnessPercent = Math.round((brightness0to255 / 255) * 100);
     const brightnessMap = { 0: 'Low', 128: 'Med', 255: 'High' };
-    const closestBrightness = Object.keys(brightnessMap).reduce((a, b) => 
+    const closestBrightness = Object.keys(brightnessMap).reduce((a, b) =>
         Math.abs(brightness0to255 - a) < Math.abs(brightness0to255 - b) ? a : b);
-    
+
     ['Low', 'Med', 'High'].forEach(btn => {
         $('brightness' + btn).disabled = false;
         $('brightness' + btn).classList.toggle('active', btn === brightnessMap[closestBrightness]);
