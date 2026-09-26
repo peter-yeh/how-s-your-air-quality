@@ -4,6 +4,7 @@ const commandUuid = '4fa8691c-1360-4c27-ba5c-057245417c92';
 let dataCharacteristic, commandCharacteristic, transfer = '', transferType = '', chunkCount = 0, startTime = 0, expectedFileSize = 0, currentFileName = '';
 let airQualityChart = null;
 const $ = id => document.getElementById(id);
+const brightnessPresets = { Off: 0, Low: 3, Med: 51, Max: 255 };
 const graphModeLabels = ['Seconds', 'Minutes', 'Hours'];
 const chartZoomPluginAvailable = typeof Chart !== 'undefined' && typeof ChartZoom !== 'undefined';
 
@@ -19,13 +20,12 @@ function formatFileSize(bytes) {
 
 function applySettings(brightness0to255, graphMode) {
     const brightnessPercent = Math.round((brightness0to255 / 255) * 100);
-    const brightnessMap = { 0: 'Low', 128: 'Med', 255: 'High' };
-    const closestBrightness = Object.keys(brightnessMap).reduce((a, b) =>
-        Math.abs(brightness0to255 - a) < Math.abs(brightness0to255 - b) ? a : b);
+    const closestBrightness = Object.keys(brightnessPresets).reduce((closest, name) =>
+        Math.abs(brightness0to255 - brightnessPresets[closest]) < Math.abs(brightness0to255 - brightnessPresets[name]) ? closest : name);
 
-    ['Low', 'Med', 'High'].forEach(btn => {
-        $('brightness' + btn).disabled = false;
-        $('brightness' + btn).classList.toggle('active', btn === brightnessMap[closestBrightness]);
+    Object.keys(brightnessPresets).forEach(name => {
+        $('brightness' + name).disabled = false;
+        $('brightness' + name).classList.toggle('active', name === closestBrightness);
     });
     $('brightnessValue').textContent = brightnessPercent + '%';
 
@@ -508,13 +508,12 @@ $('ConnectESP32').onclick = async () => {
 };
 
 // Brightness preset buttons
-const brightnessPresets = { Low: 0, Med: 128, High: 255 };
 Object.entries(brightnessPresets).forEach(([name, value]) => {
     const btn = $('brightness' + name);
     btn.addEventListener('click', async () => {
         const percent = Math.round((value / 255) * 100);
         $('brightnessValue').textContent = percent + '%';
-        ['Low', 'Med', 'High'].forEach(n => $('brightness' + n).classList.toggle('active', n === name));
+        Object.keys(brightnessPresets).forEach(preset => $('brightness' + preset).classList.toggle('active', preset === name));
         try {
             if (commandCharacteristic) {
                 await commandCharacteristic.writeValue(new TextEncoder().encode(`SetBrightness:${value}`));
