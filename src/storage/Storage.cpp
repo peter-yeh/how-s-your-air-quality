@@ -63,72 +63,6 @@ StorageController::StorageController() : sdSpi(HSPI)
 {
 }
 
-void StorageController::createDailyFiles(const struct tm &date)
-{
-    char monthFolder[16];
-    char sensorFilename[32];
-    char logFilename[32];
-    snprintf(monthFolder, sizeof(monthFolder), "/%02d %04d",
-             date.tm_mon + 1, date.tm_year + 1900);
-    snprintf(sensorFilename, sizeof(sensorFilename), "%s/%02d%02d%04d.csv",
-             monthFolder, date.tm_mday, date.tm_mon + 1,
-             date.tm_year + 1900);
-    snprintf(logFilename, sizeof(logFilename), "%s/%02d%02d%04d.log",
-             monthFolder, date.tm_mday, date.tm_mon + 1,
-             date.tm_year + 1900);
-
-    if (!SD.exists(monthFolder) && !SD.mkdir(monthFolder))
-    {
-        return;
-    }
-
-    if (!SD.exists(sensorFilename))
-    {
-        File sensorFile = SD.open(sensorFilename, FILE_APPEND);
-        sensorFile.close();
-    }
-
-    if (!SD.exists(logFilename))
-    {
-        File logFile = SD.open(logFilename, FILE_APPEND);
-        logFile.close();
-    }
-}
-
-void StorageController::printDirectory(fs::FS &filesystem, const char *path)
-{
-    if (!PRINT_DIRECTORY_ON_BOOT)
-    {
-        return; // Skip directory listing unless debugging enabled
-    }
-
-    File directory = filesystem.open(path);
-    if (!directory || !directory.isDirectory())
-    {
-        APP_LOG("Unable to open SD root directory.");
-        return;
-    }
-
-    File entry = directory.openNextFile();
-    if (!entry)
-    {
-        APP_LOG("SD root directory is empty.");
-    }
-
-    while (entry)
-    {
-        if (entry.isDirectory())
-        {
-            APP_LOG("DIR  %s", entry.name());
-        }
-        else
-        {
-            APP_LOG("FILE %s  %u bytes", entry.name(), static_cast<unsigned>(entry.size()));
-        }
-        entry = directory.openNextFile();
-    }
-}
-
 bool StorageController::begin()
 {
     if (storageMutex == nullptr)
@@ -154,65 +88,9 @@ bool StorageController::begin()
 
     initialized = true;
 
-    time_t now = time(nullptr);
-    struct tm currentTime;
-    localtime_r(&now, &currentTime);
-
-    // Validate system time before creating files
-    // If time has not been synced via NTP yet, skip file creation for now
-    // createNextDayFile() will be called periodically and will create files once time is valid
-    if (currentTime.tm_year + 1900 >= 2020) // TIME_VALIDATION_MIN_YEAR check
-    {
-        createDailyFiles(currentTime);
-        lastDayOfMonth = currentTime.tm_mday; // Track current day
-        APP_LOG("Daily files created for %04d-%02d-%02d",
-                currentTime.tm_year + 1900, currentTime.tm_mon + 1, currentTime.tm_mday);
-    }
-    else
-    {
-        APP_LOG("System time not valid yet (%04d-%02d-%02d), skipping file creation.",
-                currentTime.tm_year + 1900, currentTime.tm_mon + 1, currentTime.tm_mday);
-        APP_LOG("Files will be created once NTP synchronization completes.");
-        lastDayOfMonth = -1; // Force file creation on first valid time check
-    }
-
     APP_LOG("SD card initialized.");
     APP_LOG("SD card size: %u MB", static_cast<unsigned>(SD.cardSize() / (1024 * 1024)));
-    printDirectory(SD, "/");
     return true;
-}
-
-void StorageController::createNextDayFile()
-{
-    time_t now = time(nullptr);
-    struct tm currentTime;
-    localtime_r(&now, &currentTime);
-
-    // Validate system time is reasonable
-    if (currentTime.tm_year + 1900 < 2020) // TIME_VALIDATION_MIN_YEAR check
-    {
-        return; // Time not yet synced, skip
-    }
-
-    // Check if day has changed or files haven't been created yet (lastDayOfMonth == -1)
-    if (currentTime.tm_mday == lastDayOfMonth && lastDayOfMonth != -1)
-    {
-        return; // Still the same day
-    }
-
-    // Day has changed or initial file creation needed - create files for new day
-    lastDayOfMonth = currentTime.tm_mday;
-
-    StorageLock lock(storageMutex);
-    if (!lock.acquired())
-    {
-        APP_LOG("Failed to acquire lock for day file creation");
-        return;
-    }
-
-    createDailyFiles(currentTime);
-    APP_LOG("Daily files created for new day (%04d-%02d-%02d)",
-            currentTime.tm_year + 1900, currentTime.tm_mon + 1, currentTime.tm_mday);
 }
 
 bool StorageController::saveToCsv(const String &data)
@@ -272,11 +150,6 @@ bool StorageController::saveToCsv(const String &data)
         APP_LOG("CSV row written: %s", data.c_str());
     }
     return success;
-}
-
-bool StorageController::saveLog(const String &message)
-{
-    return saveLogBatch(message.c_str(), message.length());
 }
 
 bool StorageController::saveLogBatch(const char *data, size_t length)
@@ -426,56 +299,6 @@ bool StorageController::listCsvFiles(String &result)
     return true;
 }
 
-bool StorageController::listAllFiles(String &result)
-{
-    StorageLock lock(storageMutex);
-    if (!lock.acquired())
-    {
-        return false;
-    }
-
-    if (!initialized)
-    {
-        return false;
-    }
-
-    result = "";
-    File root = SD.open("/");
-    if (!root || !root.isDirectory())
-    {
-        return false;
-    }
-
-    File entry = root.openNextFile();
-    while (entry)
-    {
-        const String entryName = String(entry.name());
-        if (entry.isDirectory())
-        {
-            if (entryName != "System Volume Information")
-            {
-                File child = entry.openNextFile();
-                while (child)
-                {
-                    if (!child.isDirectory())
-                    {
-                        result += "/" + entryName + "/" + String(child.name());
-                        result += "\n";
-                    }
-                    child = entry.openNextFile();
-                }
-            }
-        }
-        else
-        {
-            result += "/" + entryName;
-            result += "\n";
-        }
-        entry = root.openNextFile();
-    }
-    return true;
-}
-
 bool StorageController::streamFile(const String &path, void (*onChunk)(const String &))
 {
     StorageLock lock(storageMutex);
@@ -507,58 +330,6 @@ bool StorageController::streamFile(const String &path, void (*onChunk)(const Str
         chunkIndex++;
     }
     APP_LOG("streamFile: done, %u chunk(s) sent", static_cast<unsigned>(chunkIndex));
-    file.close();
-    return true;
-}
-
-bool StorageController::streamRecentLines(const String &path, size_t maxLines, void (*onChunk)(const String &))
-{
-    StorageLock lock(storageMutex);
-    if (!lock.acquired())
-    {
-        return false;
-    }
-
-    if (!initialized || !onChunk || !path.startsWith("/") || path.indexOf("..") >= 0)
-    {
-        return false;
-    }
-
-    File file = SD.open(path, FILE_READ);
-    if (!file || file.isDirectory())
-    {
-        APP_LOG("streamRecentLines: cannot open %s", path.c_str());
-        return false;
-    }
-
-    // CSV rows are ~60 bytes; seek near the end instead of reading the whole file.
-    constexpr size_t AVG_LINE_BYTES = 64;
-    const size_t fileSize = file.size();
-    const size_t approxBytes = maxLines * AVG_LINE_BYTES;
-    const size_t startPos = fileSize > approxBytes ? fileSize - approxBytes : 0;
-
-    if (startPos > 0)
-    {
-        file.seek(startPos);
-        while (file.available() && file.read() != '\n')
-        {
-        }
-    }
-
-    APP_LOG("streamRecentLines: %s, size %u bytes, starting at %u",
-            path.c_str(),
-            static_cast<unsigned>(fileSize),
-            static_cast<unsigned>(file.position()));
-    char buffer[181];
-    size_t chunkIndex = 0;
-    while (file.available())
-    {
-        const size_t count = file.readBytes(buffer, sizeof(buffer) - 1);
-        buffer[count] = '\0';
-        onChunk(String(buffer));
-        chunkIndex++;
-    }
-    APP_LOG("streamRecentLines: done, %u chunk(s) sent", static_cast<unsigned>(chunkIndex));
     file.close();
     return true;
 }

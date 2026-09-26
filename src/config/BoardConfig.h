@@ -42,8 +42,7 @@ namespace StorageConfig
     constexpr uint8_t SD_MOSI = 23;
     constexpr uint8_t SD_MISO = 19;
     constexpr uint32_t SD_FREQUENCY = 20000000;
-    constexpr size_t MAX_BLE_FILE_SIZE = 1048576;   // 1MB max for BLE streaming
-    constexpr bool PRINT_DIRECTORY_ON_BOOT = false; // Set to true for debugging
+    constexpr size_t MAX_BLE_FILE_SIZE = 1048576; // 1MB max for BLE streaming
 }
 
 // ============ WIRELESS (WiFi & NTP) ============

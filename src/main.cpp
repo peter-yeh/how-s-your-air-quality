@@ -110,8 +110,6 @@ void airQualityTask(void *pvParameters)
       // Burn-in shift for the display to prevent screen burn-in
       display.shiftScreen(burnInShiftX[shiftIndex], burnInShiftY[shiftIndex]);
       shiftIndex = (shiftIndex + 1) % 4;
-
-      storage.createNextDayFile();
     }
 
     vTaskDelay(pdMS_TO_TICKS(200));
@@ -131,16 +129,16 @@ void setup()
 
   display.begin();
 
-  // Initialize storage first
-  const bool storageReady = storage.begin();
-  // SerialLogger.enableStorage(storageReady);
-
   // Read brightness from storage and set it
   uint8_t brightness = settings.getBrightness();
   display.setBrightness(brightness);
   display.setGraphMode(settings.getGraphMode());
 
   ble.begin(&storage, &settings, &display);
+
+  // Initialize storage first
+  const bool storageReady = storage.begin();
+  // SerialLogger.enableStorage(storageReady);
 
   // Initialize sensor with max retries
   uint8_t sensorRetries = 0;
@@ -152,15 +150,7 @@ void setup()
     delay(SensorConfig::RETRY_DELAY_MS);
   }
 
-  if (sensorRetries >= SensorConfig::MAX_INIT_RETRIES)
-  {
-    APP_LOG("CRITICAL: BMV080 sensor failed to initialize after %u attempts. Starting in degraded mode.",
-            SensorConfig::MAX_INIT_RETRIES);
-  }
-  else
-  {
-    APP_LOG("BMV080 connected after %u attempt(s)", sensorRetries);
-  }
+  APP_LOG("BMV080 connected", sensorRetries);
 
   // Subscribe this task to watchdog
   esp_task_wdt_add(NULL);
